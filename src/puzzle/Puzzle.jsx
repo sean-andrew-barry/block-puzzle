@@ -33,13 +33,13 @@ function runSanityTests() {
   try {
     console.assert(typeof computeClears === 'function', 'computeClears missing');
     // Rotation/size sanity
-    const line3 = [[0,0],[1,0],[2,0]];
+    const line3 = [[0, 0], [1, 0], [2, 0]];
     const rot = rotate(line3, 1);
     const sz = shapeSize(rot);
     console.assert(sz.w === 1 && sz.h === 3, 'rotate/size failed');
 
     // Square remains square after rotation
-    const sq = [[0,0],[1,0],[0,1],[1,1]];
+    const sq = [[0, 0], [1, 0], [0, 1], [1, 1]];
     const sqr = rotate(sq, 3);
     const sqsz = shapeSize(sqr);
     console.assert(sqsz.w === 2 && sqsz.h === 2, 'square rotate failed');
@@ -51,7 +51,7 @@ function runSanityTests() {
     }
 
     // Mirror invariants
-    const L = [[0,0],[0,1],[0,2],[1,2]]; // asymmetric
+    const L = [[0, 0], [0, 1], [0, 2], [1, 2]]; // asymmetric
     const Lm = mirror(L);
     console.assert(JSON.stringify(normalize(mirror(Lm))) === JSON.stringify(normalize(L)), 'double mirror should restore');
 
@@ -82,7 +82,7 @@ function runSanityTests() {
 
     // Opposite edges combine/cancel (top & bottom): net 0 dy
     const g3 = emptyGrid();
-    for (let c = 0; c < GRID_COLS; c++) { g3[0][c] = { color: '#fff' }; g3[GRID_ROWS-1][c] = { color: '#fff' }; }
+    for (let c = 0; c < GRID_COLS; c++) { g3[0][c] = { color: '#fff' }; g3[GRID_ROWS - 1][c] = { color: '#fff' }; }
     const res3 = computeClears(g3);
     const dy = -res3.topShift + res3.bottomShift;
     console.assert(dy === 0, 'opposite edges should cancel');
@@ -109,7 +109,7 @@ function useStableId() {
 }
 
 // ========================= Main Component =========================
-export default function EdgeShiftPuzzle({ sfx = {} }) {
+export default function Puzzle({ sfx = {} }) {
   const allocId = useStableId();
   const gridRef = useRef(null);
   const boardWrapRef = useRef(null);
@@ -193,7 +193,7 @@ export default function EdgeShiftPuzzle({ sfx = {} }) {
   // Global keybinds: R rotate (CW), F flip, Space place (if valid), Esc cancel
   useEffect(() => {
     function onKey(e) {
-      if (['r','R','f','F',' ','Escape'].includes(e.key)) e.preventDefault();
+      if (['r', 'R', 'f', 'F', ' ', 'Escape'].includes(e.key)) e.preventDefault();
       if (e.key === 'Escape') {
         setSelectedIndex(null); setHoverOverlay(null); setDrag(null);
         return;
@@ -574,7 +574,7 @@ export default function EdgeShiftPuzzle({ sfx = {} }) {
                       const flashClass = cell ? (FLASH_BY_COLOR[cell.color] || deriveFlashClass(cell.color)) : "bg-amber-200";
                       return (
                         <div key={`clr-${r}-${c}`} className={`absolute ${flashClass} rounded-sm`}
-                             style={{ left: c * cellPx + 4, top: r * cellPx + 4, width: cellPx - 8, height: cellPx - 8, animation: `cellClear ${CLEAR_MS}ms ease-out forwards` }} />
+                          style={{ left: c * cellPx + 4, top: r * cellPx + 4, width: cellPx - 8, height: cellPx - 8, animation: `cellClear ${CLEAR_MS}ms ease-out forwards` }} />
                       );
                     })
                   ))}
@@ -723,11 +723,11 @@ function QueuePanel({ queue, onStartDrag, selectedIndex, setSelectedIndex, rotat
         )}
         {queue.map((item, i) => (
           <div key={item.id}
-               onClick={() => setSelectedIndex(i)}
-               onContextMenu={(e) => { e.preventDefault(); setSelectedIndex(i); rotateSelectedCW(); }}
-               onPointerDown={(e) => onStartDrag(e, i)}
-               className={`flex items-center gap-3 p-2 rounded-xl border ${selectedIndex===i?"border-slate-400":"border-slate-800"} bg-slate-950/60 cursor-pointer`}
-               title="Left‑click to select/pick up • Right‑click to rotate/flip"
+            onClick={() => setSelectedIndex(i)}
+            onContextMenu={(e) => { e.preventDefault(); setSelectedIndex(i); rotateSelectedCW(); }}
+            onPointerDown={(e) => onStartDrag(e, i)}
+            className={`flex items-center gap-3 p-2 rounded-xl border ${selectedIndex === i ? "border-slate-400" : "border-slate-800"} bg-slate-950/60 cursor-pointer`}
+            title="Left‑click to select/pick up • Right‑click to rotate/flip"
           >
             <div className="relative select-none cursor-grab active:cursor-grabbing">
               <ShapePreview item={item} />
