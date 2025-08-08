@@ -1,183 +1,34 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  GRID_COLS,
+  GRID_ROWS,
+  QUEUE_SIZE,
+  CELL_MIN,
+  CELL_MAX,
+  CLEAR_MS,
+  SHIFT_MS,
+  COMBO_MS,
+  BURST_MS,
+  SHAPES,
+  FLASH_BY_COLOR,
+  deriveFlashClass,
+} from "./constants.js";
+import { makeRng } from "./rng.js";
+import {
+  applyOrientation,
+  shapeSize,
+  nextOrientation,
+  rotate,
+  mirror,
+  normalize,
+} from "./geometry.js";
+import {
+  emptyGrid,
+  computeClears,
+  clearOnly,
+  applyClearsAndShifts,
+} from "./grid.js";
 
-// ========================= Game Config =========================
-const GRID_COLS = 12;
-const GRID_ROWS = 12;
-const QUEUE_SIZE = 4;
-const CELL_MIN = 20;  // minimum cell px when auto-scaling
-const CELL_MAX = 64;  // maximum cell px when auto-scaling
-const CLEAR_MS = 280; // duration of clear flash/shrink
-const SHIFT_MS = 320; // duration of board shift animation
-const COMBO_MS = 900; // combo popup lifetime
-const BURST_MS = 1000; // score burst lifetime
-
-// ========================= Utility: Seeded RNG (Mulberry32) =========================
-function mulberry32(seed) {
-  let t = seed >>> 0;
-  return function () {
-    t += 0x6D2B79F5;
-    let r = Math.imul(t ^ (t >>> 15), 1 | t);
-    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
-    return ((r ^ (r >>> 14)) >>> 0) / 4294967296; // [0,1)
-  };
-}
-
-function makeRng(seed) {
-  const rand = mulberry32(seed);
-  return {
-    next: () => rand(),
-    int: (max) => Math.floor(rand() * max),
-    choice: (arr) => arr[Math.floor(rand() * arr.length)],
-  };
-}
-
-// ========================= Shapes Catalog =========================
-// Each shape is defined by a set of [x, y] blocks with origin at top-left of its local bounding box.
-// Colors now use Tailwind class names (e.g., "bg-yellow-500").
-// Added per-shape flash color for clear animations.
-const SHAPES = [
-  { key: "single", name: "1×1", color: "bg-emerald-500", flash: "bg-emerald-200", blocks: [[0, 0]] },
-  { key: "line2",  name: "1×2", color: "bg-sky-400",     flash: "bg-sky-200",     blocks: [[0, 0], [1, 0]] },
-  { key: "line3",  name: "1×3", color: "bg-amber-500",   flash: "bg-amber-200",   blocks: [[0, 0], [1, 0], [2, 0]] },
-  { key: "line4",  name: "1×4", color: "bg-rose-500",    flash: "bg-rose-200",    blocks: [[0, 0], [1, 0], [2, 0], [3, 0]] },
-  { key: "square2",name: "2×2", color: "bg-violet-500",  flash: "bg-violet-200",  blocks: [[0, 0], [1, 0], [0, 1], [1, 1]] },
-  { key: "square3",name: "3×3", color: "bg-cyan-500",    flash: "bg-cyan-200",    blocks: [[0,0],[1,0],[2,0],[0,1],[1,1],[2,1],[0,2],[1,2],[2,2]] },
-  { key: "corner2",name: "Corner 2×2", color: "bg-yellow-500", flash: "bg-yellow-200", blocks: [[0,0],[1,0],[0,1]] },
-  { key: "t3",     name: "T",   color: "bg-teal-400",    flash: "bg-teal-200",    blocks: [[0,0],[1,0],[2,0],[1,1]] },
-  { key: "L3",     name: "L",   color: "bg-lime-400",    flash: "bg-lime-200",    blocks: [[0,0],[0,1],[0,2],[1,2]] },
-  { key: "Z",      name: "Z",   color: "bg-rose-400",    flash: "bg-rose-200",    blocks: [[0,0],[1,0],[1,1],[2,1]] },
-];
-
-// Build a quick lookup from base color -> flash color. Fallback derivation if missing.
-const FLASH_BY_COLOR = SHAPES.reduce((acc, s) => { acc[s.color] = s.flash || deriveFlashClass(s.color); return acc; }, {});
-function deriveFlashClass(base) {
-  // Convert bg-emerald-500 => bg-emerald-200 (or similar), keep hue.
-  const m = /^bg-([a-z-]+)-(\d{2,3})$/.exec(base);
-  if (!m) return "bg-white";
-  const [_, hue] = m;
-  return `bg-${hue}-200`;
-}
-
-// ========================= Geometry helpers =========================
-function normalize(blocks) {
-  let minX = Infinity, minY = Infinity;
-  for (const [x, y] of blocks) { if (x < minX) minX = x; if (y < minY) minY = y; }
-  return blocks.map(([x, y]) => [x - minX, y - minY]);
-}
-
-// Rotate 90° clockwise using local bounding box (screen-space CW)
-function rotateCW(blocks) {
-  const { w, h } = shapeSize(blocks);
-  const rotated = blocks.map(([x, y]) => [h - 1 - y, x]);
-  return normalize(rotated);
-}
-
-function rotate(blocks, steps) {
-  let out = blocks;
-  for (let i = 0; i < ((steps % 4) + 4) % 4; i++) out = rotateCW(out);
-  return out;
-}
-
-function mirror(blocks) {
-  // Mirror horizontally across the shape's local bounding box
-  const { w } = shapeSize(blocks);
-  const mirrored = blocks.map(([x, y]) => [w - 1 - x, y]);
-  return normalize(mirrored);
-}
-
-function applyOrientation(blocks, rotation, isMirrored) {
-  let oriented = rotate(blocks, rotation);
-  if (isMirrored) oriented = mirror(oriented);
-  return oriented;
-}
-
-function shapeSize(blocks) {
-  const xs = blocks.map(b => b[0]);
-  const ys = blocks.map(b => b[1]);
-  return { w: Math.max(...xs) + 1, h: Math.max(...ys) + 1 };
-}
-
-// Helper to test orientation cycling: increment rotation; if wrapped, toggle mirror
-function nextOrientation(rotation, isMirrored) {
-  const nextRot = (rotation + 1) % 4; // clockwise
-  const nextMir = nextRot === 0 ? !isMirrored : isMirrored;
-  return { rotation: nextRot, isMirrored: nextMir };
-}
-
-// ========================= Grid helpers (top-level so tests can import) =========================
-function emptyGrid() {
-  return Array.from({ length: GRID_ROWS }, () => Array.from({ length: GRID_COLS }, () => null));
-}
-
-function computeClears(g) {
-  const rowsFull = new Set();
-  const colsFull = new Set();
-
-  // Check rows
-  for (let r = 0; r < GRID_ROWS; r++) {
-    let full = true;
-    for (let c = 0; c < GRID_COLS; c++) {
-      if (!g[r][c]) { full = false; break; }
-    }
-    if (full) rowsFull.add(r);
-  }
-
-  // Check cols
-  for (let c = 0; c < GRID_COLS; c++) {
-    let full = true;
-    for (let r = 0; r < GRID_ROWS; r++) {
-      if (!g[r][c]) { full = false; break; }
-    }
-    if (full) colsFull.add(c);
-  }
-
-  // Edge shift magnitudes: count contiguous full rows/cols from edges
-  let topShift = 0;
-  while (rowsFull.has(topShift)) topShift++;
-  let bottomShift = 0;
-  while (rowsFull.has(GRID_ROWS - 1 - bottomShift)) bottomShift++;
-
-  let leftShift = 0;
-  while (colsFull.has(leftShift)) leftShift++;
-  let rightShift = 0;
-  while (colsFull.has(GRID_COLS - 1 - rightShift)) rightShift++;
-
-  return { rowsFull, colsFull, topShift, bottomShift, leftShift, rightShift };
-}
-
-function clearOnly(g, rowsFull, colsFull) {
-  return g.map((row, r) => row.map((cell, c) => (rowsFull.has(r) || colsFull.has(c)) ? null : cell));
-}
-
-function applyClearsAndShifts(g, rowsFull, colsFull, shifts) {
-  const { topShift, bottomShift, leftShift, rightShift } = shifts;
-
-  // 1) Clear all full rows & cols simultaneously
-  let afterClear = clearOnly(g, rowsFull, colsFull);
-
-  // 2) Apply uniform translation determined by edge-cleared lines
-  const dx = -leftShift + rightShift;   // cancel opposing edges
-  const dy = -topShift + bottomShift;   // cancel opposing edges
-
-  if (dx === 0 && dy === 0) return afterClear; // no wrap; cells remain in-bounds or are skipped below
-
-  const out = emptyGrid();
-  for (let r = 0; r < GRID_ROWS; r++) {
-    for (let c = 0; c < GRID_COLS; c++) {
-      const cell = afterClear[r][c];
-      if (!cell) continue;
-      const nr = r + dy;
-      const nc = c + dx;
-      // Clip at edges (no wrap)
-      if (nr >= 0 && nr < GRID_ROWS && nc >= 0 && nc < GRID_COLS) {
-        out[nr][nc] = cell;
-      }
-    }
-  }
-  return out;
-}
-
-// ========================= Dev sanity tests (run in console once on mount) =========================
 function runSanityTests() {
   try {
     console.assert(typeof computeClears === 'function', 'computeClears missing');
@@ -473,7 +324,7 @@ export default function EdgeShiftPuzzle({ sfx = {} }) {
     onBoardPointerMove(e);
   }
 
-  function onDragEnd(e) {
+  function onDragEnd() {
     window.removeEventListener("pointermove", onDragMove);
     window.removeEventListener("pointerup", onDragEnd);
     setDrag(current => {
@@ -650,7 +501,6 @@ export default function EdgeShiftPuzzle({ sfx = {} }) {
   }
 
   // ========================= Render =========================
-  const selectedItem = selectedIndex != null ? queue[selectedIndex] : null;
   const dxPx = (shiftAnim?.dx ?? 0) * cellPx;
   const dyPx = (shiftAnim?.dy ?? 0) * cellPx;
 

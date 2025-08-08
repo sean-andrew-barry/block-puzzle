@@ -1,12 +1,13 @@
-import { useState } from 'react'
-import './App.css'
-
-import Puzzle from "./Puzzle";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import "./App.css";
+import Home from "./pages/Home.jsx";
 
 export default function App() {
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      <Puzzle />
-    </div>
+    <Router>
+      <Routes>
+        <Route path="/" element={<Home />} />
+      </Routes>
+    </Router>
   );
 }
