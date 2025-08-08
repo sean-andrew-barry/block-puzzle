@@ -29,6 +29,11 @@ import {
   applyClearsAndShifts,
 } from "./grid.js";
 
+import QueuePanel from "../components/QueuePanel.jsx";
+import RulesPanel from "../components/RulesPanel.jsx";
+import ShapePreview from "../components/ShapePreview.jsx";
+import StatsPanel from "../components/StatsPanel.jsx";
+
 function runSanityTests() {
   try {
     console.assert(typeof computeClears === 'function', 'computeClears missing');
@@ -689,94 +694,6 @@ export default function Puzzle({ sfx = {} }) {
       <footer className="text-xs text-slate-400 opacity-80">
         Tip: Left‑click a shape to pick it up (drag), or left‑click the board to place a selected shape. Right‑click anywhere to rotate; after 4 rotations it toggles mirror and cycles the mirrored rotations. Keybinds: <span className="font-mono">R</span> rotate, <span className="font-mono">F</span> flip, <span className="font-mono">Space</span> place, <span className="font-mono">Esc</span> cancel.
       </footer>
-    </div>
-  );
-}
-
-function StatsPanel({ stats }) {
-  return (
-    <div className="rounded-2xl bg-slate-900/70 border border-slate-800 p-4 shadow-xl">
-      <div className="text-lg font-semibold mb-2">Stats</div>
-      <div className="grid grid-cols-2 gap-y-1 text-sm">
-        <div className="opacity-70">Score</div><div className="text-right font-mono">{stats.score}</div>
-        <div className="opacity-70">Moves</div><div className="text-right font-mono">{stats.moves}</div>
-        <div className="opacity-70">Blocks placed</div><div className="text-right font-mono">{stats.totalPlacedBlocks}</div>
-        <div className="opacity-70">Rows cleared</div><div className="text-right font-mono">{stats.linesClearedRows}</div>
-        <div className="opacity-70">Cols cleared</div><div className="text-right font-mono">{stats.linesClearedCols}</div>
-        <div className="opacity-70">Edge shifts</div><div className="text-right font-mono">{stats.edgeShifts}</div>
-        <div className="opacity-70">Max combo</div><div className="text-right font-mono">{stats.maxCombo}</div>
-      </div>
-    </div>
-  );
-}
-
-function QueuePanel({ queue, onStartDrag, selectedIndex, setSelectedIndex, rotateSelectedCW, toggleSelectedMirror }) {
-  return (
-    <div className="rounded-2xl bg-slate-900/70 border border-slate-800 p-4 shadow-xl">
-      <div className="flex items-center mb-2">
-        <div className="text-lg font-semibold">Current Batch</div>
-        <div className="ml-auto text-xs text-slate-400">(left‑click to pick up; right‑click to rotate/flip)</div>
-      </div>
-      <div className="flex flex-col gap-3">
-        {queue.length === 0 && (
-          <div className="text-sm text-slate-400">Batch used up — a fresh set appears after you place this move.</div>
-        )}
-        {queue.map((item, i) => (
-          <div key={item.id}
-            onClick={() => setSelectedIndex(i)}
-            onContextMenu={(e) => { e.preventDefault(); setSelectedIndex(i); rotateSelectedCW(); }}
-            onPointerDown={(e) => onStartDrag(e, i)}
-            className={`flex items-center gap-3 p-2 rounded-xl border ${selectedIndex === i ? "border-slate-400" : "border-slate-800"} bg-slate-950/60 cursor-pointer`}
-            title="Left‑click to select/pick up • Right‑click to rotate/flip"
-          >
-            <div className="relative select-none cursor-grab active:cursor-grabbing">
-              <ShapePreview item={item} />
-            </div>
-            <div className="flex-1">
-              <div className="text-sm font-medium">{item.name}</div>
-              <div className="text-xs text-slate-400">{item.key} {item.isMirrored ? '• mirr' : ''} r{item.rotation}</div>
-            </div>
-            <div className="flex items-center gap-1">
-              <button className="px-2 py-1 text-xs rounded-md bg-slate-800 border border-slate-700 hover:bg-slate-700" onClick={() => { setSelectedIndex(i); rotateSelectedCW(); }}>R</button>
-              <button className="px-2 py-1 text-xs rounded-md bg-slate-800 border border-slate-700 hover:bg-slate-700" onClick={() => { setSelectedIndex(i); toggleSelectedMirror(); }}>F</button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ShapePreview({ item }) {
-  const blocks = useMemo(() => applyOrientation(item.blocks, item.rotation, item.isMirrored), [item.blocks, item.rotation, item.isMirrored]);
-  const { w, h } = shapeSize(blocks);
-  const scale = 18; // mini thumbnail size per cell
-  return (
-    <div className="rounded-lg p-2 bg-slate-900 border border-slate-800" style={{ width: w * scale + 8, height: h * scale + 8 }}>
-      <div className="relative" style={{ width: w * scale, height: h * scale }}>
-        {blocks.map(([x, y], i) => (
-          <div key={i} className={`absolute rounded-sm ${item.color}`} style={{
-            left: x * scale, top: y * scale, width: scale - 2, height: scale - 2,
-          }} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function RulesPanel() {
-  return (
-    <div className="rounded-2xl bg-slate-900/70 border border-slate-800 p-4 shadow-xl text-sm leading-6">
-      <div className="text-lg font-semibold mb-2">Rules</div>
-      <ul className="list-disc pl-5 space-y-1 text-slate-300">
-        <li>Place shapes onto the grid. Rows/columns with no gaps are cleared.</li>
-        <li><span className="font-medium">Edge shift:</span> If cleared lines touch the <em>outer edges</em> (top/bottom/left/right), the entire board shifts toward those edges by the number of such lines.</li>
-        <li>Multiple simultaneous clears are allowed. Internal clears still vanish but only <em>edge</em> clears cause shifting.</li>
-        <li>Left‑click a shape to pick it up (drag) or select. Right‑click to rotate; after four rotations it toggles a horizontal mirror and cycles the mirrored rotations.</li>
-        <li>Shapes are dealt in batches of {QUEUE_SIZE}. Use them up; only then a new batch is drawn.</li>
-        <li>Seeded runs: the same seed yields the same shape sequence. Use <span className="font-mono">New Seed</span> to start a fresh run.</li>
-      </ul>
-      <div className="mt-3 text-xs text-slate-400">Opposite edges cancel (left vs. right, top vs. bottom). Cells never wrap; anything shifted beyond an edge is clipped. Keybinds: R rotate, F flip, Space place, Esc cancel.</div>
     </div>
   );
 }
