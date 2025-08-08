@@ -1,4 +1,4 @@
-import { GRID_ROWS, GRID_COLS } from './constants.js';
+import { GRID_ROWS, GRID_COLS } from '../data/constants.js';
 
 export function emptyGrid() {
   return Array.from({ length: GRID_ROWS }, () => Array.from({ length: GRID_COLS }, () => null));

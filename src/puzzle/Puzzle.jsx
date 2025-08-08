@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   GRID_COLS,
   GRID_ROWS,
@@ -12,8 +12,8 @@ import {
   SHAPES,
   FLASH_BY_COLOR,
   deriveFlashClass,
-} from "./constants.js";
-import { makeRng } from "./rng.js";
+} from "../data/constants.js";
+import { makeRng } from "../utility/rng.js";
 import {
   applyOrientation,
   shapeSize,
