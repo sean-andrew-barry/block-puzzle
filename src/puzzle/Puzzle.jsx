@@ -1,18 +1,20 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   GRID_COLS,
   GRID_ROWS,
+  TW_GRID_COLS,
+  TW_GRID_ROWS,
+  GAP_PX,
+  TW_GRID,
   QUEUE_SIZE,
-  CELL_MIN,
-  CELL_MAX,
   CLEAR_MS,
   SHIFT_MS,
   COMBO_MS,
   BURST_MS,
-  SHAPES,
   FLASH_BY_COLOR,
   deriveFlashClass,
 } from "../data/constants.js";
+import { shapes as SHAPES } from "../data/shapes.js";
 import { makeRng } from "../utility/rng.js";
 import {
   applyOrientation,
@@ -31,7 +33,6 @@ import {
 
 import QueuePanel from "../components/QueuePanel.jsx";
 import RulesPanel from "../components/RulesPanel.jsx";
-import ShapePreview from "../components/ShapePreview.jsx";
 import StatsPanel from "../components/StatsPanel.jsx";
 
 function runSanityTests() {
@@ -117,6 +118,7 @@ function useStableId() {
 export default function Puzzle({ sfx = {} }) {
   const allocId = useStableId();
   const gridRef = useRef(null);
+  const cellRef = useRef(null);
   const boardWrapRef = useRef(null);
 
   // Responsive cell size based on available width
@@ -125,9 +127,15 @@ export default function Puzzle({ sfx = {} }) {
     const el = boardWrapRef.current;
     if (!el) return;
     const update = () => {
-      const w = el.clientWidth || 0;
-      const px = Math.max(CELL_MIN, Math.min(CELL_MAX, Math.floor(w / GRID_COLS)));
-      setCellPx(px);
+      const rect = cellRef.current?.getBoundingClientRect();
+      if (!rect) return null;
+
+      // const cellSize = rect.width;
+
+      // const w = el.clientWidth || 0;
+      // const px = Math.max(CELL_MIN, Math.min(CELL_MAX, Math.floor(w / GRID_COLS)));
+      // setCellPx(px);
+      setCellPx(rect.width);
     };
     update();
     const ro = new ResizeObserver(update);
@@ -247,13 +255,29 @@ export default function Puzzle({ sfx = {} }) {
   }
 
   function placementFromCursor(clientX, clientY, blocks) {
-    const rect = gridRef.current?.getBoundingClientRect();
-    if (!rect) return null;
-    const gx = clientX - rect.left;
-    const gy = clientY - rect.top;
-    const { w, h } = shapeSize(blocks);
-    const col = Math.round(gx / cellPx - w / 2);
-    const row = Math.round(gy / cellPx - h / 2);
+    const cell = cellRef.current; // top-left cell (0,0)
+    if (!cell) return null;
+
+    const rect = cell.getBoundingClientRect();
+    const gx = clientX - rect.left; // x from left edge of col 0
+    const gy = clientY - rect.top;  // y from top edge of row 0
+
+    const cellW = rect.width;
+    const cellH = rect.height;
+    const gapX = GAP_PX;
+    const gapY = GAP_PX;
+
+    const strideX = cellW + gapX;
+    const strideY = cellH + gapY;
+
+    const { w, h } = shapeSize(blocks); // in cells
+
+    const shapeWpx = w * cellW + (w - 1) * gapX;
+    const shapeHpx = h * cellH + (h - 1) * gapY;
+
+    const col = Math.round((gx - shapeWpx / 2) / strideX);
+    const row = Math.round((gy - shapeHpx / 2) / strideY);
+
     const valid = canPlace(grid, blocks, col, row);
     return { row, col, valid };
   }
@@ -508,16 +532,12 @@ export default function Puzzle({ sfx = {} }) {
   // ========================= Render =========================
   const dxPx = (shiftAnim?.dx ?? 0) * cellPx;
   const dyPx = (shiftAnim?.dy ?? 0) * cellPx;
+  // const stride = cellPx + GAP_PX;
+  // const dxPx = dxSteps * stride;
+  // const dyPx = dySteps * stride;
 
   return (
     <div className="min-h-screen w-full bg-slate-950 text-slate-100 p-4 flex flex-col gap-4">
-      {/* Anim keyframes (scoped for convenience) */}
-      <style>{`
-        @keyframes cellClear { 0% { opacity:.85; transform: scale(1); } 40% { opacity:1; transform: scale(1.12); } 100% { opacity:0; transform: scale(0); } }
-        @keyframes scoreRise { 0% { opacity:0; transform: translate(-50%, -10%) scale(.9);} 20% { opacity:1; transform: translate(-50%, -30%) scale(1.06);} 100% { opacity:0; transform: translate(-50%, -80%) scale(1);}}
-        @keyframes comboPop { 0% { opacity:0; transform: translate(-50%, -50%) scale(.8);} 25% { opacity:1; transform: translate(-50%, -50%) scale(1.1);} 70% { opacity:1; transform: translate(-50%, -50%) scale(1);} 100% { opacity:0; transform: translate(-50%, -60%) scale(1);} }
-      `}</style>
-
       <header className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-bold tracking-tight">Edge‑Shift Puzzle</h1>
         <div className="ml-auto flex items-center gap-2">
@@ -537,142 +557,165 @@ export default function Puzzle({ sfx = {} }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
         {/* Grid / Board */}
-        <div className="w-full">
-          <div ref={boardWrapRef} className="relative w-full">
-            <div
-              ref={gridRef}
-              className="relative"
-              style={{ width: GRID_COLS * cellPx, height: GRID_ROWS * cellPx }}
-              onMouseLeave={() => { setHoverOverlay(null); }}
-              onMouseMove={onBoardPointerMove}
-              onClick={onGridClickFromHover}
-              onContextMenu={(e) => {
-                if (selectedIndex == null || isAnimating) return;
-                e.preventDefault();
-                rotateSelectedCW(e.clientX, e.clientY);
-              }}
-            >
-              {/* Always-rendered background grid so board never vanishes */}
-              <div className="grid" style={{ gridTemplateColumns: `repeat(${GRID_COLS}, ${cellPx}px)` }}>
-                {Array.from({ length: GRID_ROWS }).map((_, r) => (
+        <div ref={boardWrapRef}>
+          <div
+            ref={gridRef}
+            className="relative"
+            onMouseLeave={() => { setHoverOverlay(null); }}
+            onMouseMove={onBoardPointerMove}
+            onClick={onGridClickFromHover}
+            onContextMenu={(e) => {
+              if (selectedIndex == null || isAnimating) return;
+              e.preventDefault();
+              rotateSelectedCW(e.clientX, e.clientY);
+            }}
+          >
+            {/* Always-rendered background grid */}
+            <div className={`${TW_GRID} border-4 border-slate-800`} style={{ gap: `${GAP_PX}px` }}>
+              {Array.from({ length: GRID_ROWS - 1 }).map((_, r) => (
+                <div key={`r-${r + 1}`} style={{ gridRow: `${r + 2}`, gridColumnStart: `1`, gridColumnEnd: "-1" }}>
+                  <div className="-translate-y-1 h-1 w-full bg-slate-800 pointer-events-none" />
+                </div>
+              ))}
+
+              {Array.from({ length: GRID_COLS - 1 }).map((_, c) => (
+                <div key={`c-${c + 1}`} style={{ gridColumn: `${c + 2}`, gridRowStart: `1`, gridRowEnd: "-1" }}>
+                  <div className="-translate-x-1 w-1 h-full bg-slate-800 pointer-events-none" />
+                </div>
+              ))}
+
+              {Array.from({ length: GRID_ROWS }).map((_, r) => (
+                Array.from({ length: GRID_COLS }).map((_, c) => {
+                  const cell = grid[r][c];
+                  return (
+                    <div ref={r === 0 && c === 0 ? cellRef : undefined} key={`${r}-${c}`} className="relative" style={{ gridRow: `${r + 1}`, gridColumn: `${c + 1}` }}>
+                      {cell && (
+                        <div className={`absolute inset-0 ${cell.color} `} style={{ opacity: hideBaseFills ? 0 : 1, transition: 'opacity 120ms linear' }} />
+                      )}
+                    </div>
+                  );
+                })
+              ))}
+
+              {!isAnimating && hoverOverlay && (
+                hoverOverlay.blocks.map(([dx, dy], i) => {
+                  const invalid = !hoverOverlay.valid;
+
+                  return (
+                    <div key={`hover-${i}`}
+                      className={`rounded-md ${hoverOverlay.color} ${invalid ? 'animate-pulse' : ''}`}
+                      style={{
+                        gridRow: `${1 + dy}`,
+                        gridColumn: `${1 + dx}`,
+                        transition: "transform 50ms ease",
+                        transform: `translate3d(calc(${hoverOverlay.col} * (100% + ${GAP_PX}px)), calc(${hoverOverlay.row} * (100% + ${GAP_PX}px)), 0)`,
+                        backgroundImage: invalid ? "repeating-linear-gradient(45deg, rgba(248,113,113,0.28), rgba(248,113,113,0.28) 6px, rgba(248,113,113,0.08) 6px, rgba(248,113,113,0.08) 12px)" : undefined,
+                      }}
+                    />
+                  );
+                })
+              )}
+
+              {clearAnim && (
+                Array.from({ length: GRID_ROWS }).flatMap((_, r) =>
                   Array.from({ length: GRID_COLS }).map((_, c) => {
-                    const cell = grid[r][c];
+                    if (!clearAnim.rowsFull.has(r) && !clearAnim.colsFull.has(c)) return null;
+
+                    const cell = clearAnim.grid[r][c];
+                    const flashClass = cell
+                      ? (FLASH_BY_COLOR[cell.color] || deriveFlashClass(cell.color))
+                      : "bg-amber-200";
+
                     return (
-                      <div key={`${r}-${c}`} className="border-2 border-slate-800 bg-slate-900/60 relative" style={{ width: cellPx, height: cellPx }}>
-                        {/* Base fills only when NOT animating a shift layer */}
-                        {cell && (
-                          <div className={`absolute inset-0 ${cell.color}`} style={{ opacity: hideBaseFills ? 0 : 1, transition: 'opacity 120ms linear' }} />
-                        )}
+                      <div
+                        key={`clr-${r}-${c}`}
+                        className="pointer-events-none relative z-[25]"
+                        style={{ gridRow: r + 1, gridColumn: c + 1 }}
+                      >
+                        <div
+                          className={`absolute inset-0 ${flashClass} rounded-sm`}
+                          style={{ animation: `cellClear ${CLEAR_MS}ms ease-out forwards` }}
+                        />
                       </div>
                     );
                   })
-                ))}
-              </div>
-
-              {/* Clear animation overlay: per-cell flash using each cell's flash color */}
-              {clearAnim && (
-                <div className="pointer-events-none absolute inset-0" style={{ zIndex: 25 }}>
-                  {Array.from({ length: GRID_ROWS }).map((_, r) => (
-                    Array.from({ length: GRID_COLS }).map((_, c) => {
-                      if (!clearAnim.rowsFull.has(r) && !clearAnim.colsFull.has(c)) return null;
-                      const cell = clearAnim.grid[r][c];
-                      const flashClass = cell ? (FLASH_BY_COLOR[cell.color] || deriveFlashClass(cell.color)) : "bg-amber-200";
-                      return (
-                        <div key={`clr-${r}-${c}`} className={`absolute ${flashClass} rounded-sm`}
-                          style={{ left: c * cellPx + 4, top: r * cellPx + 4, width: cellPx - 8, height: cellPx - 8, animation: `cellClear ${CLEAR_MS}ms ease-out forwards` }} />
-                      );
-                    })
-                  ))}
-                </div>
+                )
               )}
 
               {/* Shift animation overlay: render remaining cells and translate them */}
-              {animGrid && (
-                <div className="pointer-events-none absolute inset-0" style={{ zIndex: 30, transform: `translate(${shiftProgress ? dxPx : 0}px, ${shiftProgress ? dyPx : 0}px)`, transition: `transform ${SHIFT_MS}ms cubic-bezier(.2,.9,.2,1)` }}>
-                  {animGrid.map((row, r) => row.map((cell, c) => (
-                    cell ? (
-                      <div key={`move-${r}-${c}`} className={`absolute rounded-sm ${cell.color}`} style={{
-                        left: c * cellPx + 4,
-                        top: r * cellPx + 4,
-                        width: cellPx - 8,
-                        height: cellPx - 8,
-                      }} />
-                    ) : null
-                  )))}
-                </div>
-              )}
+              {animGrid && animGrid.map((row, r) =>
+                row.map((cell, c) => {
+                  if (!cell) return null;
 
-              {/* Hover/Selection overlay (above cells) */}
-              {!isAnimating && hoverOverlay && (
-                <div className="pointer-events-none absolute inset-0" style={{ zIndex: 35 }}>
-                  {hoverOverlay.blocks.map(([dx, dy], i) => {
-                    const r = hoverOverlay.row + dy;
-                    const c = hoverOverlay.col + dx;
-                    if (r < 0 || c < 0 || r >= GRID_ROWS || c >= GRID_COLS) return null; // clip outside
-                    const invalid = !hoverOverlay.valid;
-                    return (
-                      <div key={`hover-${i}`}
-                        className={`absolute rounded-md ${hoverOverlay.color} ${invalid ? 'animate-pulse' : ''}`}
+                  // dxPx/dyPx should already be stride-based pixels:
+                  //   strideX = cellPx + GAP_PX
+                  //   strideY = cellPx + GAP_PX
+                  //   dxPx = dxSteps * strideX
+                  //   dyPx = dySteps * strideY
+
+                  return (
+                    <div
+                      key={`move-${r}-${c}`}
+                      className="pointer-events-none relative z-[30]"
+                      style={{ gridRow: r + 1, gridColumn: c + 1 }}
+                    >
+                      <div
+                        className={`absolute inset-0 rounded-sm ${cell.color}`}
                         style={{
-                          left: c * cellPx + 2,
-                          top: r * cellPx + 2,
-                          width: cellPx - 4,
-                          height: cellPx - 4,
-                          opacity: invalid ? 0.28 : 0.55,
-                          outline: invalid ? "3px dashed rgba(248,113,113,1)" : "3px solid rgba(56,189,248,0.9)",
-                          boxShadow: invalid ? "0 0 0 2px rgba(248,113,113,0.8) inset, 0 0 12px rgba(248,113,113,0.5)" : "0 0 0 2px rgba(56,189,248,0.6) inset, 0 0 14px rgba(56,189,248,0.45)",
-                          backgroundImage: invalid ? "repeating-linear-gradient(45deg, rgba(248,113,113,0.28), rgba(248,113,113,0.28) 6px, rgba(248,113,113,0.08) 6px, rgba(248,113,113,0.08) 12px)" : undefined,
+                          // transform: `translate3d(calc(${c} * (100% + ${GAP_PX}px)), calc(${hoverOverlay.row} * (100% + ${GAP_PX}px)), 0)`,
+                          transform: `translate3d(${shiftProgress ? dxPx : 0}px, ${shiftProgress ? dyPx : 0}px, 0)`,
+                          transition: `transform ${SHIFT_MS}ms cubic-bezier(.2,.9,.2,1)`,
                         }}
                       />
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Drag preview overlay (also centered) */}
-              {!isAnimating && drag && drag.over && (
-                <div className="pointer-events-none absolute inset-0" style={{ zIndex: 40 }}>
-                  {drag.blocks.map(([dx, dy], i) => {
-                    const r = drag.over.row + dy;
-                    const c = drag.over.col + dx;
-                    if (r < 0 || c < 0 || r >= GRID_ROWS || c >= GRID_COLS) return null;
-                    const invalid = !drag.valid;
-                    return (
-                      <div key={`drag-${i}`}
-                        className={`absolute rounded-md ${drag.color} ${invalid ? 'animate-pulse' : ''}`}
-                        style={{
-                          left: c * cellPx + 2,
-                          top: r * cellPx + 2,
-                          width: cellPx - 4,
-                          height: cellPx - 4,
-                          opacity: invalid ? 0.3 : 0.6,
-                          outline: invalid ? "3px dashed rgba(248,113,113,1)" : "3px solid rgba(56,189,248,0.95)",
-                          boxShadow: invalid ? "0 0 0 2px rgba(248,113,113,0.8) inset, 0 0 14px rgba(248,113,113,0.5)" : "0 0 0 2px rgba(56,189,248,0.65) inset, 0 0 16px rgba(56,189,248,0.5)",
-                          backgroundImage: invalid ? "repeating-linear-gradient(45deg, rgba(248,113,113,0.28), rgba(248,113,113,0.28) 6px, rgba(248,113,113,0.08) 6px, rgba(248,113,113,0.08) 12px)" : undefined,
-                        }}
-                      />
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Combo popup (center) */}
-              {comboPopup && (
-                <div className="pointer-events-none absolute left-1/2 top-1/2" style={{ zIndex: 50, transform: 'translate(-50%, -50%)' }}>
-                  <div className="text-4xl font-black tracking-wide text-white drop-shadow-[0_2px_12px_rgba(34,211,238,0.7)]" style={{ animation: `comboPop ${COMBO_MS}ms ease-out forwards` }}>{comboPopup.text}</div>
-                  {comboPopup.sub && <div className="text-center text-cyan-300/90 font-semibold -mt-1" style={{ animation: `comboPop ${COMBO_MS}ms ease-out forwards` }}>{comboPopup.sub}</div>}
-                </div>
-              )}
-
-              {/* Score bursts */}
-              {scoreBursts.length > 0 && (
-                <div className="pointer-events-none absolute inset-0" style={{ zIndex: 45 }}>
-                  {scoreBursts.map(b => (
-                    <div key={b.id} className="absolute text-amber-300 font-extrabold text-lg" style={{ left: b.x, top: b.y, transform: 'translate(-50%, -50%)', animation: `scoreRise ${BURST_MS}ms ease-out forwards`, textShadow: '0 2px 8px rgba(0,0,0,0.45)' }}>{b.text}</div>
-                  ))}
-                </div>
+                    </div>
+                  );
+                })
               )}
             </div>
+
+            {/* Drag preview overlay (also centered) */}
+            {!isAnimating && drag && drag.over && (
+              <div className="pointer-events-none absolute inset-0" style={{ zIndex: 40 }}>
+                {drag.blocks.map(([dx, dy], i) => {
+                  const r = drag.over.row + dy;
+                  const c = drag.over.col + dx;
+                  if (r < 0 || c < 0 || r >= GRID_ROWS || c >= GRID_COLS) return null;
+                  const invalid = !drag.valid;
+                  return (
+                    <div key={`drag-${i}`}
+                      className={`absolute rounded-md ${drag.color} ${invalid ? 'animate-pulse' : ''}`}
+                      style={{
+                        left: c * cellPx + 2,
+                        top: r * cellPx + 2,
+                        width: cellPx - 4,
+                        height: cellPx - 4,
+                        opacity: invalid ? 0.3 : 0.6,
+                        outline: invalid ? "3px dashed rgba(248,113,113,1)" : "3px solid rgba(56,189,248,0.95)",
+                        boxShadow: invalid ? "0 0 0 2px rgba(248,113,113,0.8) inset, 0 0 14px rgba(248,113,113,0.5)" : "0 0 0 2px rgba(56,189,248,0.65) inset, 0 0 16px rgba(56,189,248,0.5)",
+                        backgroundImage: invalid ? "repeating-linear-gradient(45deg, rgba(248,113,113,0.28), rgba(248,113,113,0.28) 6px, rgba(248,113,113,0.08) 6px, rgba(248,113,113,0.08) 12px)" : undefined,
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Combo popup (center) */}
+            {comboPopup && (
+              <div className="pointer-events-none absolute left-1/2 top-1/2" style={{ zIndex: 50, transform: 'translate(-50%, -50%)' }}>
+                <div className="text-4xl font-black tracking-wide text-white drop-shadow-[0_2px_12px_rgba(34,211,238,0.7)]" style={{ animation: `comboPop ${COMBO_MS}ms ease-out forwards` }}>{comboPopup.text}</div>
+                {comboPopup.sub && <div className="text-center text-cyan-300/90 font-semibold -mt-1" style={{ animation: `comboPop ${COMBO_MS}ms ease-out forwards` }}>{comboPopup.sub}</div>}
+              </div>
+            )}
+
+            {/* Score bursts */}
+            {scoreBursts.length > 0 && (
+              <div className="pointer-events-none absolute inset-0" style={{ zIndex: 45 }}>
+                {scoreBursts.map(b => (
+                  <div key={b.id} className="absolute text-amber-300 font-extrabold text-lg" style={{ left: b.x, top: b.y, transform: 'translate(-50%, -50%)', animation: `scoreRise ${BURST_MS}ms ease-out forwards`, textShadow: '0 2px 8px rgba(0,0,0,0.45)' }}>{b.text}</div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
