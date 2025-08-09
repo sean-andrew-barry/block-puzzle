@@ -500,11 +500,13 @@ export default function Puzzle({ sfx = {} }) {
     return true;
   }
 
-  function onGridClickFromHover() {
+  function onGridPointerDown(e) {
     if (isAnimating) return;
+    if (e.button !== undefined && e.button !== 0) return;
     if (!hoverOverlay || !hoverOverlay.valid || selectedIndex == null) return;
     const item = queue[selectedIndex];
     handlePlaceFromQueue(selectedIndex, hoverOverlay.col, hoverOverlay.row, hoverOverlay.blocks, item.color);
+    e.preventDefault();
   }
 
   function newSeed() {
@@ -562,7 +564,7 @@ export default function Puzzle({ sfx = {} }) {
             className="relative"
             onMouseLeave={() => { setHoverOverlay(null); }}
             onMouseMove={onBoardPointerMove}
-            onClick={onGridClickFromHover}
+            onPointerDown={onGridPointerDown}
             onContextMenu={(e) => {
               if (selectedIndex == null || isAnimating) return;
               e.preventDefault();
