@@ -164,7 +164,12 @@ export default function Puzzle({ sfx = {} }) {
   });
 
   // Drag/hover selection
-  const [drag, setDrag] = useState(null); // { qi, blocks, color, rotation, isMirrored, w, h, over:{row,col}|null, valid }
+  const [drag, setDragState] = useState(null); // { qi, blocks, color, rotation, isMirrored, w, h, over:{row,col}|null, valid }
+  const dragRef = useRef(drag);
+  const setDrag = (value) => {
+    dragRef.current = typeof value === "function" ? value(dragRef.current) : value;
+    setDragState(dragRef.current);
+  };
   const [hoverOverlay, setHoverOverlay] = useState(null); // { row, col, blocks, color, valid }
   const lastCursorRef = useRef({ x: null, y: null });
 
@@ -356,14 +361,11 @@ export default function Puzzle({ sfx = {} }) {
   function onDragEnd() {
     window.removeEventListener("pointermove", onDragMove);
     window.removeEventListener("pointerup", onDragEnd);
-    setDrag(current => {
-      if (!current) return null;
-      const { over, valid, qi } = current;
-      if (over && valid) {
-        handlePlaceFromQueue(qi, over.col, over.row, current.blocks, current.color);
-      }
-      return null;
-    });
+    const current = dragRef.current;
+    setDrag(null);
+    if (current && current.over && current.valid) {
+      handlePlaceFromQueue(current.qi, current.over.col, current.over.row, current.blocks, current.color);
+    }
   }
 
   function addScoreBurst(x, y, text) {
@@ -382,113 +384,111 @@ export default function Puzzle({ sfx = {} }) {
 
   function handlePlaceFromQueue(qi, col, row, orientedBlocks, color) {
     if (isAnimating) return;
-    setGrid(prev => {
-      const placedCells = orientedBlocks.length;
-      // Place into a working copy
-      let placedGrid = prev.map(r => r.slice());
-      for (const [dx, dy] of orientedBlocks) {
-        placedGrid[row + dy][col + dx] = { color };
+
+    const placedCells = orientedBlocks.length;
+    // Place into a working copy of the current grid
+    let placedGrid = grid.map(r => r.slice());
+    for (const [dx, dy] of orientedBlocks) {
+      placedGrid[row + dy][col + dx] = { color };
+    }
+
+    // SFX: placement
+    if (sfx.place) sfx.place({ cells: placedCells });
+
+    // Evaluate clears & shifts
+    const { rowsFull, colsFull, topShift, bottomShift, leftShift, rightShift } = computeClears(placedGrid);
+    const combo = rowsFull.size + colsFull.size;
+    const dx = -leftShift + rightShift;
+    const dy = -topShift + bottomShift;
+    const edgeCount = topShift + bottomShift + leftShift + rightShift;
+
+    // Score bookkeeping (award immediately)
+    const moveScore = placedCells * 1 + combo * 100 + edgeCount * 50 + (combo > 1 ? (combo - 1) * 50 : 0);
+    setStats(s => ({
+      moves: s.moves + 1,
+      score: s.score + moveScore,
+      totalPlacedBlocks: s.totalPlacedBlocks + placedCells,
+      linesClearedRows: s.linesClearedRows + rowsFull.size,
+      linesClearedCols: s.linesClearedCols + colsFull.size,
+      edgeShifts: s.edgeShifts + edgeCount,
+      maxCombo: Math.max(s.maxCombo, combo),
+    }));
+
+    // UI juice: score bursts and combo popup
+    const stride = cellPx + GAP_PX;
+    const boardW = GRID_COLS * stride - GAP_PX;
+    const boardH = GRID_ROWS * stride - GAP_PX;
+    if (combo > 0) {
+      // per-row bursts
+      [...rowsFull].forEach(r => addScoreBurst(boardW / 2, r * stride + cellPx / 2, "+100"));
+      // per-col bursts
+      [...colsFull].forEach(c => addScoreBurst(c * stride + cellPx / 2, boardH / 2, "+100"));
+      // edge bonus burst (center)
+      if (edgeCount > 0) addScoreBurst(boardW / 2, boardH / 2, `+${edgeCount * 50}`);
+      // combo popup
+      showComboPopup(combo, edgeCount);
+      // SFX hook
+      if (sfx.clear) sfx.clear({ rows: [...rowsFull], cols: [...colsFull] });
+    }
+
+    // Consume from queue
+    setQueue(q => {
+      const out = q.slice();
+      out.splice(qi, 1);
+      if (out.length === 0) {
+        return Array.from({ length: QUEUE_SIZE }, () => makeNextShape(rngRef.current));
       }
-
-      // SFX: placement
-      if (sfx.place) sfx.place({ cells: placedCells });
-
-      // Evaluate clears & shifts
-      const { rowsFull, colsFull, topShift, bottomShift, leftShift, rightShift } = computeClears(placedGrid);
-      const combo = rowsFull.size + colsFull.size;
-      const dx = -leftShift + rightShift;
-      const dy = -topShift + bottomShift;
-      const edgeCount = topShift + bottomShift + leftShift + rightShift;
-
-      // Score bookkeeping (award immediately)
-      const moveScore = placedCells * 1 + combo * 100 + edgeCount * 50 + (combo > 1 ? (combo - 1) * 50 : 0);
-      setStats(s => ({
-        moves: s.moves + 1,
-        score: s.score + moveScore,
-        totalPlacedBlocks: s.totalPlacedBlocks + placedCells,
-        linesClearedRows: s.linesClearedRows + rowsFull.size,
-        linesClearedCols: s.linesClearedCols + colsFull.size,
-        edgeShifts: s.edgeShifts + edgeCount,
-        maxCombo: Math.max(s.maxCombo, combo),
-      }));
-
-      // UI juice: score bursts and combo popup
-      const stride = cellPx + GAP_PX;
-      const boardW = GRID_COLS * stride - GAP_PX;
-      const boardH = GRID_ROWS * stride - GAP_PX;
-      if (combo > 0) {
-        // per-row bursts
-        [...rowsFull].forEach(r => addScoreBurst(boardW / 2, r * stride + cellPx / 2, "+100"));
-        // per-col bursts
-        [...colsFull].forEach(c => addScoreBurst(c * stride + cellPx / 2, boardH / 2, "+100"));
-        // edge bonus burst (center)
-        if (edgeCount > 0) addScoreBurst(boardW / 2, boardH / 2, `+${edgeCount * 50}`);
-        // combo popup
-        showComboPopup(combo, edgeCount);
-        // SFX hook
-        if (sfx.clear) sfx.clear({ rows: [...rowsFull], cols: [...colsFull] });
-      }
-
-      // Consume from queue
-      setQueue(q => {
-        const out = q.slice();
-        out.splice(qi, 1);
-        if (out.length === 0) {
-          return Array.from({ length: QUEUE_SIZE }, () => makeNextShape(rngRef.current));
-        }
-        return out;
-      });
-
-      // Clear selection/hover immediately
-      if (selectedIndex === qi) setSelectedIndex(null);
-      setHoverOverlay(null);
-      setDrag(null);
-
-      // If nothing to animate, commit and bail
-      if (combo === 0 && dx === 0 && dy === 0) {
-        return placedGrid;
-      }
-
-      // Otherwise, drive animations
-      setIsAnimating(true);
-
-      // 1) Show clear flash/shrink where applicable (per-cell, using each cell's flash color)
-      if (combo > 0) setClearAnim({ rowsFull, colsFull, grid: placedGrid });
-
-      // Prepare intermediate states
-      const afterClear = clearOnly(placedGrid, rowsFull, colsFull);
-      const finalGrid = applyClearsAndShifts(placedGrid, rowsFull, colsFull, { topShift, bottomShift, leftShift, rightShift });
-
-      // After clear animation completes...
-      setTimeout(() => {
-        setClearAnim(null);
-        setGrid(afterClear); // keep grid visible beneath shift layer
-        if (dx === 0 && dy === 0) {
-          setIsAnimating(false);
-          return;
-        }
-        // 2) Show shift by animating a translate of remaining cells
-        setAnimGrid(afterClear);
-        setShiftAnim({ dx, dy });
-        setShiftProgress(0);
-        if (sfx.shift) sfx.shift({ dx, dy });
-        // kick off transition on next frame
-        requestAnimationFrame(() => { setHideBaseFills(true); setShiftProgress(1); });
-
-        // After shift animation, commit final grid and clean up
-        setTimeout(() => {
-          setGrid(finalGrid);
-          setAnimGrid(null);
-          setShiftAnim(null);
-          setShiftProgress(0);
-          setHideBaseFills(false);
-          setIsAnimating(false);
-        }, SHIFT_MS + 20);
-      }, CLEAR_MS + 10);
-
-      // Keep existing grid visible until animations decide otherwise
-      return placedGrid;
+      return out;
     });
+
+    // Clear selection/hover immediately
+    if (selectedIndex === qi) setSelectedIndex(null);
+    setHoverOverlay(null);
+    setDrag(null);
+
+    // If nothing to animate, commit and bail
+    if (combo === 0 && dx === 0 && dy === 0) {
+      setGrid(placedGrid);
+      return;
+    }
+
+    // Otherwise, drive animations
+    setGrid(placedGrid);
+    setIsAnimating(true);
+
+    // 1) Show clear flash/shrink where applicable (per-cell, using each cell's flash color)
+    if (combo > 0) setClearAnim({ rowsFull, colsFull, grid: placedGrid });
+
+    // Prepare intermediate states
+    const afterClear = clearOnly(placedGrid, rowsFull, colsFull);
+    const finalGrid = applyClearsAndShifts(placedGrid, rowsFull, colsFull, { topShift, bottomShift, leftShift, rightShift });
+
+    // After clear animation completes...
+    setTimeout(() => {
+      setClearAnim(null);
+      setGrid(afterClear); // keep grid visible beneath shift layer
+      if (dx === 0 && dy === 0) {
+        setIsAnimating(false);
+        return;
+      }
+      // 2) Show shift by animating a translate of remaining cells
+      setAnimGrid(afterClear);
+      setShiftAnim({ dx, dy });
+      setShiftProgress(0);
+      if (sfx.shift) sfx.shift({ dx, dy });
+      // kick off transition on next frame
+      requestAnimationFrame(() => { setHideBaseFills(true); setShiftProgress(1); });
+
+      // After shift animation, commit final grid and clean up
+      setTimeout(() => {
+        setGrid(finalGrid);
+        setAnimGrid(null);
+        setShiftAnim(null);
+        setShiftProgress(0);
+        setHideBaseFills(false);
+        setIsAnimating(false);
+      }, SHIFT_MS + 20);
+    }, CLEAR_MS + 10);
   }
 
   function canPlace(grid, blocks, col, row) {
