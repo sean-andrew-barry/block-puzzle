@@ -413,13 +413,14 @@ export default function Puzzle({ sfx = {} }) {
       }));
 
       // UI juice: score bursts and combo popup
-      const boardW = GRID_COLS * cellPx;
-      const boardH = GRID_ROWS * cellPx;
+      const stride = cellPx + GAP_PX;
+      const boardW = GRID_COLS * stride - GAP_PX;
+      const boardH = GRID_ROWS * stride - GAP_PX;
       if (combo > 0) {
         // per-row bursts
-        [...rowsFull].forEach(r => addScoreBurst(boardW / 2, r * cellPx + cellPx / 2, "+100"));
+        [...rowsFull].forEach(r => addScoreBurst(boardW / 2, r * stride + cellPx / 2, "+100"));
         // per-col bursts
-        [...colsFull].forEach(c => addScoreBurst(c * cellPx + cellPx / 2, boardH / 2, "+100"));
+        [...colsFull].forEach(c => addScoreBurst(c * stride + cellPx / 2, boardH / 2, "+100"));
         // edge bonus burst (center)
         if (edgeCount > 0) addScoreBurst(boardW / 2, boardH / 2, `+${edgeCount * 50}`);
         // combo popup
@@ -530,11 +531,9 @@ export default function Puzzle({ sfx = {} }) {
   }
 
   // ========================= Render =========================
-  const dxPx = (shiftAnim?.dx ?? 0) * cellPx;
-  const dyPx = (shiftAnim?.dy ?? 0) * cellPx;
-  // const stride = cellPx + GAP_PX;
-  // const dxPx = dxSteps * stride;
-  // const dyPx = dySteps * stride;
+  const stride = cellPx + GAP_PX;
+  const shiftXPx = (shiftAnim?.dx ?? 0) * stride;
+  const shiftYPx = (shiftAnim?.dy ?? 0) * stride;
 
   return (
     <div className="min-h-screen w-full bg-slate-950 text-slate-100 p-4 flex flex-col gap-4">
@@ -647,12 +646,6 @@ export default function Puzzle({ sfx = {} }) {
                 row.map((cell, c) => {
                   if (!cell) return null;
 
-                  // dxPx/dyPx should already be stride-based pixels:
-                  //   strideX = cellPx + GAP_PX
-                  //   strideY = cellPx + GAP_PX
-                  //   dxPx = dxSteps * strideX
-                  //   dyPx = dySteps * strideY
-
                   return (
                     <div
                       key={`move-${r}-${c}`}
@@ -662,8 +655,7 @@ export default function Puzzle({ sfx = {} }) {
                       <div
                         className={`absolute inset-0 rounded-sm ${cell.color}`}
                         style={{
-                          // transform: `translate3d(calc(${c} * (100% + ${GAP_PX}px)), calc(${hoverOverlay.row} * (100% + ${GAP_PX}px)), 0)`,
-                          transform: `translate3d(${shiftProgress ? dxPx : 0}px, ${shiftProgress ? dyPx : 0}px, 0)`,
+                          transform: `translate3d(${shiftProgress ? shiftXPx : 0}px, ${shiftProgress ? shiftYPx : 0}px, 0)`,
                           transition: `transform ${SHIFT_MS}ms cubic-bezier(.2,.9,.2,1)`,
                         }}
                       />
@@ -685,8 +677,8 @@ export default function Puzzle({ sfx = {} }) {
                     <div key={`drag-${i}`}
                       className={`absolute rounded-md ${drag.color} ${invalid ? 'animate-pulse' : ''}`}
                       style={{
-                        left: c * cellPx + 2,
-                        top: r * cellPx + 2,
+                        left: c * stride + 2,
+                        top: r * stride + 2,
                         width: cellPx - 4,
                         height: cellPx - 4,
                         opacity: invalid ? 0.3 : 0.6,
