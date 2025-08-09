@@ -93,12 +93,11 @@ function runSanityTests() {
     const dy = -res3.topShift + res3.bottomShift;
     console.assert(dy === 0, 'opposite edges should cancel');
 
-    // No wrap: shift left by 2 cannot produce cells in negative columns
+    // No wrap: shifting left/up by one must not create cells beyond the top-left boundary
     const g4 = emptyGrid();
     for (let c = 0; c < GRID_COLS; c++) g4[0][c] = { color: '#fff' }; // top clear -> dy = -1
     for (let r = 0; r < GRID_ROWS; r++) g4[r][0] = { color: '#fff' }; // left clear -> dx = -1
-    g4[1][0] = null; // ensure a non-cleared cell near left edge to test clipping math
-    g4[1][1] = { color: '#0f0' };
+    g4[1][1] = { color: '#0f0' }; // cell near left edge to verify shift without wrap
     const res4 = computeClears(g4);
     const out4 = applyClearsAndShifts(g4, res4.rowsFull, res4.colsFull, res4);
     console.assert(out4[0][0], 'expected cell at 0,0 and no wrap below 0');
