@@ -11,7 +11,8 @@ export function computeClears(g) {
   for (let r = 0; r < GRID_ROWS; r++) {
     let full = true;
     for (let c = 0; c < GRID_COLS; c++) {
-      if (!g[r][c]) { full = false; break; }
+      // Treat only null/undefined as empty to avoid false negatives
+      if (g[r][c] == null) { full = false; break; }
     }
     if (full) rowsFull.add(r);
   }
@@ -19,7 +20,7 @@ export function computeClears(g) {
   for (let c = 0; c < GRID_COLS; c++) {
     let full = true;
     for (let r = 0; r < GRID_ROWS; r++) {
-      if (!g[r][c]) { full = false; break; }
+      if (g[r][c] == null) { full = false; break; }
     }
     if (full) colsFull.add(c);
   }
@@ -63,4 +64,34 @@ export function applyClearsAndShifts(g, rowsFull, colsFull, shifts) {
     }
   }
   return out;
+}
+
+// Repeatedly apply clears and edge shifts until the grid is stable.
+// Returns the resulting grid along with aggregate stats of the extra clears.
+export function resolveAllClears(g) {
+  let grid = g;
+  let rows = 0, cols = 0, edge = 0, score = 0, maxCombo = 0;
+  while (true) {
+    const { rowsFull, colsFull, topShift, bottomShift, leftShift, rightShift } = computeClears(grid);
+    const combo = rowsFull.size + colsFull.size;
+    const edgeCount = topShift + bottomShift + leftShift + rightShift;
+    if (combo === 0 && edgeCount === 0) break;
+
+    // bookkeeping for caller
+    rows += rowsFull.size;
+    cols += colsFull.size;
+    edge += edgeCount;
+    const moveScore = combo * 100 + edgeCount * 50 + (combo > 1 ? (combo - 1) * 50 : 0);
+    score += moveScore;
+    maxCombo = Math.max(maxCombo, combo);
+
+    grid = applyClearsAndShifts(grid, rowsFull, colsFull, {
+      topShift,
+      bottomShift,
+      leftShift,
+      rightShift,
+    });
+  }
+
+  return { grid, rows, cols, edge, score, maxCombo };
 }
