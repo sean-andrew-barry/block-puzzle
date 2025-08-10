@@ -30,7 +30,6 @@ function initState({ rows, cols }) {
     queue: [],            // array of shape items
     selectedIndex: 0,     // which queue slot is active
     hover: null,          // {row, col, blocks, valid}
-    isAnimating: false,
 
     // animations
     isAnimating: false,
@@ -132,16 +131,16 @@ export default function useBoard({ rows, cols, gapPx, seed = 1234 }) {
   // immutable RNG state
   const rngStateRef = useRef(seed >>> 0);
 
-  const rngFloat = useCallback(() => {
-    const { state: s, value } = RNG.nextFloat(rngStateRef.current);
-    rngStateRef.current = s;
-    return value;
-  }, []);
-  const rngInt = useCallback((max) => {
-    const { state: s, value } = RNG.nextInt(rngStateRef.current, max);
-    rngStateRef.current = s;
-    return value;
-  }, []);
+  // const rngFloat = useCallback(() => {
+  //   const { state: s, value } = RNG.nextFloat(rngStateRef.current);
+  //   rngStateRef.current = s;
+  //   return value;
+  // }, []);
+  // const rngInt = useCallback((max) => {
+  //   const { state: s, value } = RNG.nextInt(rngStateRef.current, max);
+  //   rngStateRef.current = s;
+  //   return value;
+  // }, []);
   const rngChoice = useCallback((arr) => {
     const { state: s, value } = RNG.choice(rngStateRef.current, arr);
     rngStateRef.current = s;
@@ -207,7 +206,7 @@ export default function useBoard({ rows, cols, gapPx, seed = 1234 }) {
 
     const valid = Grid.canPlaceAt(state.grid, oriented, col, row);
     dispatch({ type: ACT.HOVER, hover: { row, col, blocks: oriented, color: item.color, valid } });
-  }, [state.queue, state.selectedIndex, state.grid, cellSizeRef.current.w, cellSizeRef.current.h, gapPx]);
+  }, [state.queue, state.selectedIndex, state.grid, gapPx]);
 
   const clearHover = useCallback(() => {
     dispatch({ type: ACT.HOVER, hover: null });
@@ -359,7 +358,7 @@ export default function useBoard({ rows, cols, gapPx, seed = 1234 }) {
     }, CLEAR_MS + 10);
 
     return true;
-  }, [state.hover, state.queue, state.selectedIndex, state.grid, state.stats, makeNextShape]);
+  }, [state.hover, state.queue, state.selectedIndex, state.grid, state.stats, state.isAnimating, makeNextShape]);
 
   return useMemo(() => ({
     // state
@@ -397,6 +396,6 @@ export default function useBoard({ rows, cols, gapPx, seed = 1234 }) {
     state, rows, cols, gapPx,
     initQueue, ensureQueue, select, updateHoverFromPoint, clearHover,
     rotateSelectedCW, toggleSelectedMirror, placeHover,
-    strideX, strideY
+    strideX, strideY, newSeed, resetBoardKeepSeed, setCellSize
   ]);
 }
