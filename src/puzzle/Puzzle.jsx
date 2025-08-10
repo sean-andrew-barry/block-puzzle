@@ -20,15 +20,13 @@ import {
   applyOrientation,
   shapeSize,
   nextOrientation,
-  rotate,
-  mirror,
-  normalize,
 } from "./geometry.js";
 import {
   emptyGrid,
   computeClears,
   clearOnly,
   applyClearsAndShifts,
+  resolveAllClears,
 } from "./grid.js";
 
 import QueuePanel from "../components/QueuePanel.jsx";
@@ -376,7 +374,18 @@ export default function Puzzle({ sfx = {} }) {
 
     // If nothing to animate, commit and bail
     if (combo === 0 && dx === 0 && dy === 0) {
-      setGrid(placedGrid);
+      const { grid: resolved, rows: r, cols: c, edge: e, score: extraScore, maxCombo: m } = resolveAllClears(placedGrid);
+      setGrid(resolved);
+      if (r || c || e) {
+        setStats(s => ({
+          ...s,
+          score: s.score + extraScore,
+          linesClearedRows: s.linesClearedRows + r,
+          linesClearedCols: s.linesClearedCols + c,
+          edgeShifts: s.edgeShifts + e,
+          maxCombo: Math.max(s.maxCombo, m),
+        }));
+      }
       return;
     }
 
@@ -396,6 +405,18 @@ export default function Puzzle({ sfx = {} }) {
       setClearAnim(null);
       setGrid(afterClear); // keep grid visible beneath shift layer
       if (dx === 0 && dy === 0) {
+        const { grid: resolved, rows: r, cols: c, edge: e, score: extraScore, maxCombo: m } = resolveAllClears(afterClear);
+        setGrid(resolved);
+        if (r || c || e) {
+          setStats(s => ({
+            ...s,
+            score: s.score + extraScore,
+            linesClearedRows: s.linesClearedRows + r,
+            linesClearedCols: s.linesClearedCols + c,
+            edgeShifts: s.edgeShifts + e,
+            maxCombo: Math.max(s.maxCombo, m),
+          }));
+        }
         setIsAnimating(false);
         return;
       }
@@ -409,7 +430,18 @@ export default function Puzzle({ sfx = {} }) {
 
       // After shift animation, commit final grid and clean up
       setTimeout(() => {
-        setGrid(finalGrid);
+        const { grid: resolved, rows: r, cols: c, edge: e, score: extraScore, maxCombo: m } = resolveAllClears(finalGrid);
+        setGrid(resolved);
+        if (r || c || e) {
+          setStats(s => ({
+            ...s,
+            score: s.score + extraScore,
+            linesClearedRows: s.linesClearedRows + r,
+            linesClearedCols: s.linesClearedCols + c,
+            edgeShifts: s.edgeShifts + e,
+            maxCombo: Math.max(s.maxCombo, m),
+          }));
+        }
         setAnimGrid(null);
         setShiftAnim(null);
         setShiftProgress(0);
