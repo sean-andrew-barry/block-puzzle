@@ -13,24 +13,16 @@ import {
   deriveFlashClass,
 } from "../data/constants.js";
 import { shapes, moreShapes } from "../data/shapes.js";
-import { makeRng } from "../utility/rng.js";
-import {
-  applyOrientation,
-  shapeSize,
-  nextOrientation,
-} from "./geometry.js";
-import {
-  emptyGrid,
-  computeClears,
-  clearOnly,
-  applyClearsAndShifts,
-  resolveAllClears,
-} from "./grid.js";
+import { makeRng } from "../utility/rng.js"; // TODO: Switch to the new `@/util/rng.js`
+import * as Geometry from "/src/game/geometry.js";
+import * as Grid from "/src/game/grid.js";
 
 import QueuePanel from "../components/QueuePanel.jsx";
 import RulesPanel from "../components/RulesPanel.jsx";
 import StatsPanel from "../components/StatsPanel.jsx";
 import GridLines from "../components/GridLines.jsx";
+import Footer from "../components/Footer.jsx";
+import Header from "../components/Header.jsx";
 import tests from "../utility/tests.js";
 
 const SHAPES = [...shapes, ...moreShapes];
@@ -75,7 +67,7 @@ export default function Puzzle({ sfx = {} }) {
   const rngRef = useRef(makeRng(seed));
 
   // Game state
-  const [grid, setGrid] = useState(emptyGrid);
+  const [grid, setGrid] = useState(Grid.emptyGrid);
   const [queue, setQueue] = useState(() => makeInitialQueue(rngRef.current));
   const [selectedIndex, setSelectedIndex] = useState(null);
 
@@ -116,7 +108,7 @@ export default function Puzzle({ sfx = {} }) {
   // Reset RNG when seed changes
   useEffect(() => {
     rngRef.current = makeRng(seed);
-    setGrid(emptyGrid());
+    setGrid(Grid.emptyGrid());
     setQueue(makeInitialQueue(rngRef.current));
     setSelectedIndex(null);
     setStats({ moves: 0, score: 0, totalPlacedBlocks: 0, linesClearedRows: 0, linesClearedCols: 0, edgeShifts: 0, maxCombo: 0 });
@@ -182,7 +174,7 @@ export default function Puzzle({ sfx = {} }) {
   }
 
   function orientedBlocksOf(item) {
-    return applyOrientation(item.blocks, item.rotation, item.isMirrored);
+    return Geometry.applyOrientation(item.blocks, item.rotation, item.isMirrored);
   }
 
   function placementFromCursor(clientX, clientY, blocks) {
@@ -201,7 +193,7 @@ export default function Puzzle({ sfx = {} }) {
     const strideX = cellW + gapX;
     const strideY = cellH + gapY;
 
-    const { w, h } = shapeSize(blocks); // in cells
+    const { w, h } = Geometry.shapeSize(blocks); // in cells
 
     const shapeWpx = w * cellW + (w - 1) * gapX;
     const shapeHpx = h * cellH + (h - 1) * gapY;
@@ -209,7 +201,7 @@ export default function Puzzle({ sfx = {} }) {
     const col = Math.round((gx - shapeWpx / 2) / strideX);
     const row = Math.round((gy - shapeHpx / 2) / strideY);
 
-    const valid = canPlace(grid, blocks, col, row);
+    const valid = Grid.canPlaceAt(grid, blocks, col, row);
     return { row, col, valid };
   }
 
@@ -232,8 +224,8 @@ export default function Puzzle({ sfx = {} }) {
     if (selectedIndex == null) return;
     const item = queue[selectedIndex];
     if (!item) return;
-    const next = nextOrientation(item.rotation, item.isMirrored); // rotates CW; toggles mirror when wrapping
-    const newBlocks = applyOrientation(item.blocks, next.rotation, next.isMirrored);
+    const next = Geometry.nextOrientation(item.rotation, item.isMirrored); // rotates CW; toggles mirror when wrapping
+    const newBlocks = Geometry.applyOrientation(item.blocks, next.rotation, next.isMirrored);
     setOrientation(selectedIndex, next.rotation, next.isMirrored);
     refreshOverlayAfterOrientationChange(newBlocks, clientX, clientY);
   }
@@ -243,7 +235,7 @@ export default function Puzzle({ sfx = {} }) {
     const item = queue[selectedIndex];
     if (!item) return;
     const nextMir = !item.isMirrored;
-    const newBlocks = applyOrientation(item.blocks, item.rotation, nextMir);
+    const newBlocks = Geometry.applyOrientation(item.blocks, item.rotation, nextMir);
     setOrientation(selectedIndex, item.rotation, nextMir);
     refreshOverlayAfterOrientationChange(newBlocks, clientX, clientY);
   }
@@ -272,7 +264,7 @@ export default function Puzzle({ sfx = {} }) {
     e.preventDefault();
     const item = queue[qi];
     const blocks = orientedBlocksOf(item);
-    const { w, h } = shapeSize(blocks);
+    const { w, h } = Geometry.shapeSize(blocks);
     setSelectedIndex(qi);
     const pos = placementFromCursor(e.clientX, e.clientY, blocks);
     setDrag({ qi, blocks, color: item.color, rotation: item.rotation, isMirrored: item.isMirrored, w, h, over: pos ? { row: pos.row, col: pos.col } : null, valid: pos ? pos.valid : false });
@@ -322,7 +314,7 @@ export default function Puzzle({ sfx = {} }) {
     if (sfx.place) sfx.place({ cells: placedCells });
 
     // Evaluate clears & shifts
-    const { rowsFull, colsFull, topShift, bottomShift, leftShift, rightShift } = computeClears(placedGrid);
+    const { rowsFull, colsFull, topShift, bottomShift, leftShift, rightShift } = Grid.computeClears(placedGrid);
     const combo = rowsFull.size + colsFull.size;
     const dx = -leftShift + rightShift;
     const dy = -topShift + bottomShift;
@@ -374,7 +366,7 @@ export default function Puzzle({ sfx = {} }) {
 
     // If nothing to animate, commit and bail
     if (combo === 0 && dx === 0 && dy === 0) {
-      const { grid: resolved, rows: r, cols: c, edge: e, score: extraScore, maxCombo: m } = resolveAllClears(placedGrid);
+      const { grid: resolved, rows: r, cols: c, edge: e, score: extraScore, maxCombo: m } = Grid.resolveAllClears(placedGrid);
       setGrid(resolved);
       if (r || c || e) {
         setStats(s => ({
@@ -397,15 +389,15 @@ export default function Puzzle({ sfx = {} }) {
     if (combo > 0) setClearAnim({ rowsFull, colsFull, grid: placedGrid });
 
     // Prepare intermediate states
-    const afterClear = clearOnly(placedGrid, rowsFull, colsFull);
-    const finalGrid = applyClearsAndShifts(placedGrid, rowsFull, colsFull, { topShift, bottomShift, leftShift, rightShift });
+    const afterClear = Grid.clearOnly(placedGrid, rowsFull, colsFull);
+    const finalGrid = Grid.applyClearsAndShifts(placedGrid, rowsFull, colsFull, { topShift, bottomShift, leftShift, rightShift });
 
     // After clear animation completes...
     setTimeout(() => {
       setClearAnim(null);
       setGrid(afterClear); // keep grid visible beneath shift layer
       if (dx === 0 && dy === 0) {
-        const { grid: resolved, rows: r, cols: c, edge: e, score: extraScore, maxCombo: m } = resolveAllClears(afterClear);
+        const { grid: resolved, rows: r, cols: c, edge: e, score: extraScore, maxCombo: m } = Grid.resolveAllClears(afterClear);
         setGrid(resolved);
         if (r || c || e) {
           setStats(s => ({
@@ -430,7 +422,7 @@ export default function Puzzle({ sfx = {} }) {
 
       // After shift animation, commit final grid and clean up
       setTimeout(() => {
-        const { grid: resolved, rows: r, cols: c, edge: e, score: extraScore, maxCombo: m } = resolveAllClears(finalGrid);
+        const { grid: resolved, rows: r, cols: c, edge: e, score: extraScore, maxCombo: m } = Grid.resolveAllClears(finalGrid);
         setGrid(resolved);
         if (r || c || e) {
           setStats(s => ({
@@ -451,15 +443,6 @@ export default function Puzzle({ sfx = {} }) {
     }, CLEAR_MS + 10);
   }
 
-  function canPlace(grid, blocks, col, row) {
-    for (const [dx, dy] of blocks) {
-      const r = row + dy, c = col + dx;
-      if (r < 0 || c < 0 || r >= GRID_ROWS || c >= GRID_COLS) return false;
-      if (grid[r][c]) return false;
-    }
-    return true;
-  }
-
   function onGridPointerDown(e) {
     if (isAnimating) return;
     if (e.button !== undefined && e.button !== 0) return;
@@ -476,7 +459,7 @@ export default function Puzzle({ sfx = {} }) {
   }
 
   function resetBoardKeepSeed() {
-    setGrid(emptyGrid());
+    setGrid(Grid.emptyGrid());
     rngRef.current = makeRng(seed);
     setQueue(makeInitialQueue(rngRef.current));
     setSelectedIndex(null);
@@ -767,18 +750,7 @@ export default function Puzzle({ sfx = {} }) {
       </div>
 
       {/* Footer */}
-      <footer className="border-t border-slate-700/50 bg-slate-900/30 backdrop-blur-sm p-4">
-        <div className="max-w-7xl mx-auto text-center text-xs text-slate-400">
-          <div className="flex flex-wrap justify-center gap-4">
-            <span><kbd className="px-1.5 py-0.5 bg-slate-800 rounded text-slate-300">Left-click</kbd> to select/drag shapes</span>
-            <span><kbd className="px-1.5 py-0.5 bg-slate-800 rounded text-slate-300">Right-click</kbd> to rotate/flip</span>
-            <span><kbd className="px-1.5 py-0.5 bg-slate-800 rounded text-slate-300">R</kbd> rotate</span>
-            <span><kbd className="px-1.5 py-0.5 bg-slate-800 rounded text-slate-300">F</kbd> flip</span>
-            <span><kbd className="px-1.5 py-0.5 bg-slate-800 rounded text-slate-300">Space</kbd> place</span>
-            <span><kbd className="px-1.5 py-0.5 bg-slate-800 rounded text-slate-300">Esc</kbd> cancel</span>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

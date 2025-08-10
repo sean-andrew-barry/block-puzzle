@@ -1,7 +1,6 @@
-import { GRID_ROWS, GRID_COLS } from '/src/data/constants.js';
-import * as geometry from './geometry.js';
+import * as geometry from '/src/game/geometry.js';
 
-export function emptyGrid(rows = GRID_ROWS, cols = GRID_COLS) {
+export function emptyGrid(rows, cols) {
   return Array.from({ length: rows }, () => Array.from({ length: cols }, () => null));
 }
 
@@ -57,7 +56,7 @@ export function applyClearsAndShifts(grid, rowsFull, colsFull, shifts) {
 
   if (dx === 0 && dy === 0) return afterClear;
 
-  const out = emptyGrid();
+  const out = emptyGrid(rows, cols);
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const cell = afterClear[r][c];
@@ -115,6 +114,14 @@ export function canPlaceAt(grid, blocks, col, row) {
     if (grid[r][c]) return false;
   }
   return true;
+}
+
+export function placeShape(grid, blocks, col, row, cell) {
+  const out = grid.map(r => r.slice());
+  for (const [dx, dy] of blocks) {
+    out[row + dy][col + dx] = cell; // e.g. { color }
+  }
+  return out;
 }
 
 // Returns true if the shape fits anywhere on the board
