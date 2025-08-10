@@ -517,17 +517,17 @@ export default function Puzzle({ sfx = {} }) {
       </header>
 
       {/* Main Game Area */}
-      <div className="p-6">
+      <div className="flex-1 flex flex-col p-4 lg:p-6 min-h-0">
         <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 xl:grid-cols-[1fr_auto] gap-8 items-start">
+          <div className="h-full flex flex-col xl:flex-row xl:items-center gap-4 lg:gap-6">
             {/* Left: Game Board + Queue */}
-            <div className="space-y-6">
+            <div className="flex-1 flex flex-col min-h-0 gap-4 lg:gap-6">
               {/* Game Board */}
-              <div ref={boardWrapRef} className="flex justify-center">
+              <div ref={boardWrapRef} className="flex-1 flex items-center justify-center min-h-0">
                 <div className="relative">
           <div
             ref={gridRef}
-            className="relative bg-slate-900/30 backdrop-blur-sm rounded-2xl p-4 border border-slate-700/50 shadow-2xl"
+            className="relative bg-slate-900/30 backdrop-blur-sm rounded-2xl p-3 lg:p-4 border border-slate-700/50 shadow-2xl"
             onMouseLeave={() => { setHoverOverlay(null); }}
             onMouseMove={onBoardPointerMove}
             onPointerDown={onGridPointerDown}
@@ -538,7 +538,7 @@ export default function Puzzle({ sfx = {} }) {
             }}
           >
             {/* Always-rendered background grid */}
-            <div className={`${TW_GRID} border-2 border-slate-700/50 rounded-xl overflow-hidden bg-slate-950/50`} style={{ gap: `${GAP_PX}px` }}>
+            <div className={`${TW_GRID} border-2 border-slate-700/50 rounded-xl overflow-hidden bg-slate-950/50 h-[min(85vh,85vw)] w-[min(85vh,85vw)] xl:h-[min(80vh,60vw)] xl:w-[min(80vh,60vw)]`} style={{ gap: `${GAP_PX}px` }}>
               <GridLines columns={false} />
               <GridLines columns={true} />
 
@@ -675,7 +675,7 @@ export default function Puzzle({ sfx = {} }) {
               </div>
 
               {/* Queue Panel - Below board on mobile, beside on desktop */}
-              <div className="xl:hidden">
+              <div className="xl:hidden flex-shrink-0">
                 <QueuePanel
                   queue={queue}
                   onStartDrag={startDrag}
@@ -688,7 +688,7 @@ export default function Puzzle({ sfx = {} }) {
             </div>
 
             {/* Right: Queue Panel (desktop only) */}
-            <div className="hidden xl:block">
+            <div className="hidden xl:block flex-shrink-0 w-80">
               <QueuePanel
                 queue={queue}
                 onStartDrag={startDrag}

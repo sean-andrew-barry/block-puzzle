@@ -2,7 +2,7 @@ import ShapePreview from "./ShapePreview.jsx";
 
 export default function QueuePanel({ queue, onStartDrag, selectedIndex, setSelectedIndex, rotateSelectedCW, toggleSelectedMirror }) {
   return (
-    <div className="bg-slate-800/40 backdrop-blur-sm rounded-2xl border border-slate-700/50 p-6 shadow-2xl">
+    <div className="bg-slate-800/40 backdrop-blur-sm rounded-2xl border border-slate-700/50 p-4 lg:p-6 shadow-2xl h-fit">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <div className="w-3 h-3 rounded-full bg-gradient-to-r from-blue-400 to-purple-400"></div>
@@ -13,7 +13,7 @@ export default function QueuePanel({ queue, onStartDrag, selectedIndex, setSelec
         </div>
       </div>
       
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-1 gap-3">
         {queue.length === 0 && (
           <div className="col-span-full text-center py-8 text-slate-400 bg-slate-900/30 rounded-xl border border-slate-700/30">
             <div className="text-lg mb-2">🎯</div>
