@@ -35,12 +35,12 @@
 @keyframes comboPop {
   0% {
     opacity: 0;
-    transform: translate(-50%, -50%) scale(.8);
+    transform: translate(-50%, -50%) scale(.7);
   }
 
   25% {
     opacity: 1;
-    transform: translate(-50%, -50%) scale(1.1);
+    transform: translate(-50%, -50%) scale(1.15);
   }
 
   70% {
@@ -50,6 +50,6 @@
 
   100% {
     opacity: 0;
-    transform: translate(-50%, -60%) scale(1);
+    transform: translate(-50%, -70%) scale(1.05);
   }
 }

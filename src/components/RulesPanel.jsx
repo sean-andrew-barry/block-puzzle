@@ -4,17 +4,48 @@ import {
 
 export default function RulesPanel() {
   return (
-    <div className="rounded-2xl bg-slate-900/70 border border-slate-800 p-4 shadow-xl text-sm leading-6">
-      <div className="text-lg font-semibold mb-2">Rules</div>
-      <ul className="list-disc pl-5 space-y-1 text-slate-300">
-        <li>Place shapes onto the grid. Rows/columns with no gaps are cleared.</li>
-        <li><span className="font-medium">Edge shift:</span> If cleared lines touch the <em>outer edges</em> (top/bottom/left/right), the entire board shifts toward those edges by the number of such lines.</li>
-        <li>Multiple simultaneous clears are allowed. Internal clears still vanish but only <em>edge</em> clears cause shifting.</li>
-        <li>Left‑click a shape to pick it up (drag) or select. Right‑click to rotate; after four rotations it toggles a horizontal mirror and cycles the mirrored rotations.</li>
-        <li>Shapes are dealt in batches of {QUEUE_SIZE}. Use them up; only then a new batch is drawn.</li>
-        <li>Seeded runs: the same seed yields the same shape sequence. Use <span className="font-mono">New Seed</span> to start a fresh run.</li>
-      </ul>
-      <div className="mt-3 text-xs text-slate-400">Opposite edges cancel (left vs. right, top vs. bottom). Cells never wrap; anything shifted beyond an edge is clipped. Keybinds: R rotate, F flip, Space place, Esc cancel.</div>
+    <div className="text-sm leading-relaxed">
+      <div className="space-y-4">
+        <div className="flex items-start gap-3">
+          <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <div className="w-2 h-2 rounded-full bg-blue-400"></div>
+          </div>
+          <div>
+            <div className="font-medium text-slate-200 mb-1">Basic Gameplay</div>
+            <div className="text-slate-300">Place shapes onto the grid. Complete rows or columns (no gaps) are cleared automatically.</div>
+          </div>
+        </div>
+        
+        <div className="flex items-start gap-3">
+          <div className="w-6 h-6 rounded-full bg-purple-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <div className="w-2 h-2 rounded-full bg-purple-400"></div>
+          </div>
+          <div>
+            <div className="font-medium text-slate-200 mb-1">Edge Shifting</div>
+            <div className="text-slate-300">When cleared lines touch the outer edges, the entire board shifts toward those edges. Internal clears don't cause shifts.</div>
+          </div>
+        </div>
+        
+        <div className="flex items-start gap-3">
+          <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
+          </div>
+          <div>
+            <div className="font-medium text-slate-200 mb-1">Shape Batches</div>
+            <div className="text-slate-300">Shapes come in batches of {QUEUE_SIZE}. Use them all up to get a fresh batch. Same seed = same sequence.</div>
+          </div>
+        </div>
+        
+        <div className="flex items-start gap-3">
+          <div className="w-6 h-6 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <div className="w-2 h-2 rounded-full bg-amber-400"></div>
+          </div>
+          <div>
+            <div className="font-medium text-slate-200 mb-1">Controls</div>
+            <div className="text-slate-300">Left-click to select/drag shapes. Right-click to rotate (4 rotations then mirror toggle). Opposite edge shifts cancel each other.</div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -466,30 +466,68 @@ export default function Puzzle({ sfx = {} }) {
   const shiftYPx = (shiftAnim?.dy ?? 0) * stride;
 
   return (
-    <div className="min-h-screen w-full bg-slate-950 text-slate-100 p-4 flex flex-col gap-4">
-      <header className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-bold tracking-tight">Edge‑Shift Puzzle</h1>
-        <div className="ml-auto flex items-center gap-2">
-          <label className="text-sm opacity-80">Seed</label>
-          <input
-            className="bg-slate-900 rounded-md px-3 py-1 text-sm border border-slate-700 w-40"
-            value={seed}
-            onChange={(e) => {
-              const v = Number(e.target.value.replace(/[^0-9]/g, ""));
-              if (!Number.isNaN(v)) setSeed(v);
-            }}
-          />
-          <button className="px-3 py-1 rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-600 text-sm" onClick={newSeed}>New Seed</button>
-          <button className="px-3 py-1 rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-600 text-sm" onClick={resetBoardKeepSeed}>Reset</button>
+    <div className="min-h-screen w-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100">
+      {/* Header */}
+      <header className="relative overflow-hidden bg-gradient-to-r from-slate-900/50 to-slate-800/30 backdrop-blur-sm border-b border-slate-700/50">
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5"></div>
+        <div className="relative px-6 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent tracking-tight">
+                Edge‑Shift Puzzle
+              </h1>
+              <div className="flex items-center gap-4 mt-2 text-sm text-slate-400">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
+                  <span>Score: <span className="font-mono text-slate-200">{stats.score.toLocaleString()}</span></span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-blue-400"></div>
+                  <span>Moves: <span className="font-mono text-slate-200">{stats.moves}</span></span>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 bg-slate-800/50 rounded-lg px-3 py-2 border border-slate-700/50">
+                <label className="text-xs text-slate-400 font-medium">Seed</label>
+                <input
+                  className="bg-slate-900/80 rounded-md px-2 py-1 text-xs border border-slate-600 w-24 font-mono text-slate-200 focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20 transition-colors"
+                  value={seed}
+                  onChange={(e) => {
+                    const v = Number(e.target.value.replace(/[^0-9]/g, ""));
+                    if (!Number.isNaN(v)) setSeed(v);
+                  }}
+                />
+              </div>
+              <button 
+                className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 border border-blue-500/50 text-sm font-medium transition-all duration-200 hover:shadow-lg hover:shadow-blue-500/25" 
+                onClick={newSeed}
+              >
+                New Seed
+              </button>
+              <button 
+                className="px-4 py-2 rounded-lg bg-slate-700/80 hover:bg-slate-600/80 border border-slate-600/50 text-sm font-medium transition-all duration-200" 
+                onClick={resetBoardKeepSeed}
+              >
+                Reset
+              </button>
+            </div>
+          </div>
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
-        {/* Grid / Board */}
-        <div ref={boardWrapRef}>
+      {/* Main Game Area */}
+      <div className="p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 xl:grid-cols-[1fr_auto] gap-8 items-start">
+            {/* Left: Game Board + Queue */}
+            <div className="space-y-6">
+              {/* Game Board */}
+              <div ref={boardWrapRef} className="flex justify-center">
+                <div className="relative">
           <div
             ref={gridRef}
-            className="relative"
+            className="relative bg-slate-900/30 backdrop-blur-sm rounded-2xl p-4 border border-slate-700/50 shadow-2xl"
             onMouseLeave={() => { setHoverOverlay(null); }}
             onMouseMove={onBoardPointerMove}
             onPointerDown={onGridPointerDown}
@@ -500,7 +538,7 @@ export default function Puzzle({ sfx = {} }) {
             }}
           >
             {/* Always-rendered background grid */}
-            <div className={`${TW_GRID} border-4 border-slate-800`} style={{ gap: `${GAP_PX}px` }}>
+            <div className={`${TW_GRID} border-2 border-slate-700/50 rounded-xl overflow-hidden bg-slate-950/50`} style={{ gap: `${GAP_PX}px` }}>
               <GridLines columns={false} />
               <GridLines columns={true} />
 
@@ -510,7 +548,7 @@ export default function Puzzle({ sfx = {} }) {
                   return (
                     <div ref={r === 0 && c === 0 ? cellRef : undefined} key={`${r}-${c}`} className="relative" style={{ gridRow: `${r + 1}`, gridColumn: `${c + 1}` }}>
                       {cell && (
-                        <div className={`absolute inset-0 ${cell.color} `} style={{ opacity: hideBaseFills ? 0 : 1, transition: 'opacity 120ms linear' }} />
+                        <div className={`absolute inset-0 ${cell.color} rounded-sm shadow-sm`} style={{ opacity: hideBaseFills ? 0 : 1, transition: 'opacity 120ms linear' }} />
                       )}
                     </div>
                   );
@@ -529,6 +567,8 @@ export default function Puzzle({ sfx = {} }) {
                         gridColumn: `${1 + dx}`,
                         transition: "transform 50ms ease",
                         transform: `translate3d(calc(${hoverOverlay.col} * (100% + ${GAP_PX}px)), calc(${hoverOverlay.row} * (100% + ${GAP_PX}px)), 0)`,
+                        opacity: invalid ? 0.4 : 0.7,
+                        boxShadow: invalid ? "0 0 0 2px rgba(248,113,113,0.8) inset" : "0 0 0 2px rgba(56,189,248,0.6) inset, 0 0 8px rgba(56,189,248,0.3)",
                         backgroundImage: invalid ? "repeating-linear-gradient(45deg, rgba(248,113,113,0.28), rgba(248,113,113,0.28) 6px, rgba(248,113,113,0.08) 6px, rgba(248,113,113,0.08) 12px)" : undefined,
                       }}
                     />
@@ -549,7 +589,7 @@ export default function Puzzle({ sfx = {} }) {
                     return (
                       <div
                         key={`clr-${r}-${c}`}
-                        className="pointer-events-none relative z-[25]"
+                        className="pointer-events-none relative z-[25] rounded-sm"
                         style={{ gridRow: r + 1, gridColumn: c + 1 }}
                       >
                         <div
@@ -578,6 +618,7 @@ export default function Puzzle({ sfx = {} }) {
                         style={{
                           transform: `translate3d(${shiftProgress ? shiftXPx : 0}px, ${shiftProgress ? shiftYPx : 0}px, 0)`,
                           transition: `transform ${SHIFT_MS}ms cubic-bezier(.2,.9,.2,1)`,
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
                         }}
                       />
                     </div>
@@ -602,9 +643,9 @@ export default function Puzzle({ sfx = {} }) {
                         top: r * stride + 2,
                         width: cellPx - 4,
                         height: cellPx - 4,
-                        opacity: invalid ? 0.3 : 0.6,
-                        outline: invalid ? "3px dashed rgba(248,113,113,1)" : "3px solid rgba(56,189,248,0.95)",
-                        boxShadow: invalid ? "0 0 0 2px rgba(248,113,113,0.8) inset, 0 0 14px rgba(248,113,113,0.5)" : "0 0 0 2px rgba(56,189,248,0.65) inset, 0 0 16px rgba(56,189,248,0.5)",
+                        opacity: invalid ? 0.4 : 0.8,
+                        outline: invalid ? "2px dashed rgba(248,113,113,1)" : "2px solid rgba(56,189,248,0.95)",
+                        boxShadow: invalid ? "0 0 0 1px rgba(248,113,113,0.8) inset, 0 0 12px rgba(248,113,113,0.4)" : "0 0 0 1px rgba(56,189,248,0.65) inset, 0 0 12px rgba(56,189,248,0.4)",
                         backgroundImage: invalid ? "repeating-linear-gradient(45deg, rgba(248,113,113,0.28), rgba(248,113,113,0.28) 6px, rgba(248,113,113,0.08) 6px, rgba(248,113,113,0.08) 12px)" : undefined,
                       }}
                     />
@@ -616,8 +657,8 @@ export default function Puzzle({ sfx = {} }) {
             {/* Combo popup (center) */}
             {comboPopup && (
               <div className="pointer-events-none absolute left-1/2 top-1/2" style={{ zIndex: 50, transform: 'translate(-50%, -50%)' }}>
-                <div className="text-4xl font-black tracking-wide text-white drop-shadow-[0_2px_12px_rgba(34,211,238,0.7)]" style={{ animation: `comboPop ${COMBO_MS}ms ease-out forwards` }}>{comboPopup.text}</div>
-                {comboPopup.sub && <div className="text-center text-cyan-300/90 font-semibold -mt-1" style={{ animation: `comboPop ${COMBO_MS}ms ease-out forwards` }}>{comboPopup.sub}</div>}
+                <div className="text-5xl font-black tracking-wide bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent drop-shadow-[0_4px_20px_rgba(34,211,238,0.8)]" style={{ animation: `comboPop ${COMBO_MS}ms ease-out forwards` }}>{comboPopup.text}</div>
+                {comboPopup.sub && <div className="text-center text-cyan-300/90 font-bold text-lg -mt-2" style={{ animation: `comboPop ${COMBO_MS}ms ease-out forwards` }}>{comboPopup.sub}</div>}
               </div>
             )}
 
@@ -625,30 +666,89 @@ export default function Puzzle({ sfx = {} }) {
             {scoreBursts.length > 0 && (
               <div className="pointer-events-none absolute inset-0" style={{ zIndex: 45 }}>
                 {scoreBursts.map(b => (
-                  <div key={b.id} className="absolute text-amber-300 font-extrabold text-lg" style={{ left: b.x, top: b.y, transform: 'translate(-50%, -50%)', animation: `scoreRise ${BURST_MS}ms ease-out forwards`, textShadow: '0 2px 8px rgba(0,0,0,0.45)' }}>{b.text}</div>
+                  <div key={b.id} className="absolute text-amber-400 font-black text-xl" style={{ left: b.x, top: b.y, transform: 'translate(-50%, -50%)', animation: `scoreRise ${BURST_MS}ms ease-out forwards`, textShadow: '0 3px 12px rgba(0,0,0,0.6)' }}>{b.text}</div>
                 ))}
               </div>
             )}
           </div>
-        </div>
+                </div>
+              </div>
 
-        {/* Sidebar */}
-        <aside className="flex flex-col gap-4">
-          <StatsPanel stats={stats} />
-          <QueuePanel
-            queue={queue}
-            onStartDrag={startDrag}
-            selectedIndex={selectedIndex}
-            setSelectedIndex={setSelectedIndex}
-            rotateSelectedCW={rotateSelectedCW}
-            toggleSelectedMirror={toggleSelectedMirror}
-          />
-          <RulesPanel />
-        </aside>
+              {/* Queue Panel - Below board on mobile, beside on desktop */}
+              <div className="xl:hidden">
+                <QueuePanel
+                  queue={queue}
+                  onStartDrag={startDrag}
+                  selectedIndex={selectedIndex}
+                  setSelectedIndex={setSelectedIndex}
+                  rotateSelectedCW={rotateSelectedCW}
+                  toggleSelectedMirror={toggleSelectedMirror}
+                />
+              </div>
+            </div>
+
+            {/* Right: Queue Panel (desktop only) */}
+            <div className="hidden xl:block">
+              <QueuePanel
+                queue={queue}
+                onStartDrag={startDrag}
+                selectedIndex={selectedIndex}
+                setSelectedIndex={setSelectedIndex}
+                rotateSelectedCW={rotateSelectedCW}
+                toggleSelectedMirror={toggleSelectedMirror}
+              />
+            </div>
+          </div>
+
+          {/* Collapsible Stats & Rules */}
+          <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <details className="group">
+              <summary className="cursor-pointer bg-slate-800/30 hover:bg-slate-800/50 rounded-lg p-4 border border-slate-700/50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-slate-200">Game Statistics</h3>
+                  <div className="text-slate-400 group-open:rotate-180 transition-transform">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+              </summary>
+              <div className="mt-2 bg-slate-900/30 rounded-lg p-4 border border-slate-700/30">
+                <StatsPanel stats={stats} />
+              </div>
+            </details>
+
+            <details className="group">
+              <summary className="cursor-pointer bg-slate-800/30 hover:bg-slate-800/50 rounded-lg p-4 border border-slate-700/50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-slate-200">How to Play</h3>
+                  <div className="text-slate-400 group-open:rotate-180 transition-transform">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+              </summary>
+              <div className="mt-2 bg-slate-900/30 rounded-lg p-4 border border-slate-700/30">
+                <RulesPanel />
+              </div>
+            </details>
+          </div>
+        </div>
       </div>
 
-      <footer className="text-xs text-slate-400 opacity-80">
-        Tip: Left‑click a shape to pick it up (drag), or left‑click the board to place a selected shape. Right‑click anywhere to rotate; after 4 rotations it toggles mirror and cycles the mirrored rotations. Keybinds: <span className="font-mono">R</span> rotate, <span className="font-mono">F</span> flip, <span className="font-mono">Space</span> place, <span className="font-mono">Esc</span> cancel.
+      {/* Footer */}
+      <footer className="border-t border-slate-700/50 bg-slate-900/30 backdrop-blur-sm p-4">
+        <div className="max-w-7xl mx-auto text-center text-xs text-slate-400">
+          <div className="flex flex-wrap justify-center gap-4">
+            <span><kbd className="px-1.5 py-0.5 bg-slate-800 rounded text-slate-300">Left-click</kbd> to select/drag shapes</span>
+            <span><kbd className="px-1.5 py-0.5 bg-slate-800 rounded text-slate-300">Right-click</kbd> to rotate/flip</span>
+            <span><kbd className="px-1.5 py-0.5 bg-slate-800 rounded text-slate-300">R</kbd> rotate</span>
+            <span><kbd className="px-1.5 py-0.5 bg-slate-800 rounded text-slate-300">F</kbd> flip</span>
+            <span><kbd className="px-1.5 py-0.5 bg-slate-800 rounded text-slate-300">Space</kbd> place</span>
+            <span><kbd className="px-1.5 py-0.5 bg-slate-800 rounded text-slate-300">Esc</kbd> cancel</span>
+          </div>
+        </div>
       </footer>
     </div>
   );
