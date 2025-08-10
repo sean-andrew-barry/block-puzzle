@@ -2,8 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import {
   GRID_COLS,
   GRID_ROWS,
-  TW_GRID_COLS,
-  TW_GRID_ROWS,
   GAP_PX,
   TW_GRID,
   QUEUE_SIZE,
@@ -14,7 +12,7 @@ import {
   FLASH_BY_COLOR,
   deriveFlashClass,
 } from "../data/constants.js";
-import { shapes as SHAPES } from "../data/shapes.js";
+import { shapes, moreShapes } from "../data/shapes.js";
 import { makeRng } from "../utility/rng.js";
 import {
   applyOrientation,
@@ -34,6 +32,8 @@ import RulesPanel from "../components/RulesPanel.jsx";
 import StatsPanel from "../components/StatsPanel.jsx";
 import GridLines from "../components/GridLines.jsx";
 import tests from "../utility/tests.js";
+
+const SHAPES = [...shapes, ...moreShapes];
 
 function useStableId() {
   const idRef = useRef(1);
@@ -531,14 +531,14 @@ export default function Puzzle({ sfx = {} }) {
                   }}
                 />
               </div>
-              <button 
-                className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 border border-blue-500/50 text-sm font-medium transition-all duration-200 hover:shadow-lg hover:shadow-blue-500/25" 
+              <button
+                className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 border border-blue-500/50 text-sm font-medium transition-all duration-200 hover:shadow-lg hover:shadow-blue-500/25"
                 onClick={newSeed}
               >
                 New Seed
               </button>
-              <button 
-                className="px-4 py-2 rounded-lg bg-slate-700/80 hover:bg-slate-600/80 border border-slate-600/50 text-sm font-medium transition-all duration-200" 
+              <button
+                className="px-4 py-2 rounded-lg bg-slate-700/80 hover:bg-slate-600/80 border border-slate-600/50 text-sm font-medium transition-all duration-200"
                 onClick={resetBoardKeepSeed}
               >
                 Reset
@@ -557,150 +557,150 @@ export default function Puzzle({ sfx = {} }) {
               {/* Game Board */}
               <div ref={boardWrapRef} className="flex-1 flex items-center justify-center min-h-0">
                 <div
-            ref={gridRef}
-            className="relative"
-            onMouseLeave={() => { setHoverOverlay(null); }}
-            onMouseMove={onBoardPointerMove}
-            onPointerDown={onGridPointerDown}
-            onContextMenu={(e) => {
-              if (selectedIndex == null || isAnimating) return;
-              e.preventDefault();
-              rotateSelectedCW(e.clientX, e.clientY);
-            }}
-          >
-            <div className={`${TW_GRID} rounded-xl overflow-hidden bg-slate-900/40 backdrop-blur-sm border border-slate-700/30 shadow-2xl h-[min(85vh,85vw)] w-[min(85vh,85vw)] xl:h-[min(80vh,60vw)] xl:w-[min(80vh,60vw)]`} style={{ gap: `${GAP_PX}px` }}>
-              <GridLines columns={false} />
-              <GridLines columns={true} />
+                  ref={gridRef}
+                  className="relative"
+                  onMouseLeave={() => { setHoverOverlay(null); }}
+                  onMouseMove={onBoardPointerMove}
+                  onPointerDown={onGridPointerDown}
+                  onContextMenu={(e) => {
+                    if (selectedIndex == null || isAnimating) return;
+                    e.preventDefault();
+                    rotateSelectedCW(e.clientX, e.clientY);
+                  }}
+                >
+                  <div className={`${TW_GRID} rounded-xl overflow-hidden bg-slate-900/40 backdrop-blur-sm border border-slate-700/30 shadow-2xl h-[min(85vh,85vw)] w-[min(85vh,85vw)] xl:h-[min(80vh,60vw)] xl:w-[min(80vh,60vw)]`} style={{ gap: `${GAP_PX}px` }}>
+                    <GridLines columns={false} />
+                    <GridLines columns={true} />
 
-              {Array.from({ length: GRID_ROWS }).map((_, r) => (
-                Array.from({ length: GRID_COLS }).map((_, c) => {
-                  const cell = grid[r][c];
-                  return (
-                    <div ref={r === 0 && c === 0 ? cellRef : undefined} key={`${r}-${c}`} className="relative" style={{ gridRow: `${r + 1}`, gridColumn: `${c + 1}` }}>
-                      {cell && (
-                        <div className={`absolute inset-0 ${cell.color} rounded-sm shadow-sm`} style={{ opacity: hideBaseFills ? 0 : 1, transition: 'opacity 120ms linear' }} />
-                      )}
+                    {Array.from({ length: GRID_ROWS }).map((_, r) => (
+                      Array.from({ length: GRID_COLS }).map((_, c) => {
+                        const cell = grid[r][c];
+                        return (
+                          <div ref={r === 0 && c === 0 ? cellRef : undefined} key={`${r}-${c}`} className="relative" style={{ gridRow: `${r + 1}`, gridColumn: `${c + 1}` }}>
+                            {cell && (
+                              <div className={`absolute inset-0 ${cell.color} rounded-sm shadow-sm`} style={{ opacity: hideBaseFills ? 0 : 1, transition: 'opacity 120ms linear' }} />
+                            )}
+                          </div>
+                        );
+                      })
+                    ))}
+
+                    {!isAnimating && hoverOverlay && (
+                      hoverOverlay.blocks.map(([dx, dy], i) => {
+                        const invalid = !hoverOverlay.valid;
+
+                        return (
+                          <div key={`hover-${i}`}
+                            className={`rounded-md ${hoverOverlay.color} ${invalid ? 'animate-pulse' : ''}`}
+                            style={{
+                              gridRow: `${1 + dy}`,
+                              gridColumn: `${1 + dx}`,
+                              transition: "transform 50ms ease",
+                              transform: `translate3d(calc(${hoverOverlay.col} * (100% + ${GAP_PX}px)), calc(${hoverOverlay.row} * (100% + ${GAP_PX}px)), 0)`,
+                              opacity: invalid ? 0.4 : 0.7,
+                              boxShadow: invalid ? "0 0 0 2px rgba(248,113,113,0.8) inset" : "0 0 0 2px rgba(56,189,248,0.6) inset, 0 0 8px rgba(56,189,248,0.3)",
+                              backgroundImage: invalid ? "repeating-linear-gradient(45deg, rgba(248,113,113,0.28), rgba(248,113,113,0.28) 6px, rgba(248,113,113,0.08) 6px, rgba(248,113,113,0.08) 12px)" : undefined,
+                            }}
+                          />
+                        );
+                      })
+                    )}
+
+                    {clearAnim && (
+                      Array.from({ length: GRID_ROWS }).flatMap((_, r) =>
+                        Array.from({ length: GRID_COLS }).map((_, c) => {
+                          if (!clearAnim.rowsFull.has(r) && !clearAnim.colsFull.has(c)) return null;
+
+                          const cell = clearAnim.grid[r][c];
+                          const flashClass = cell
+                            ? (FLASH_BY_COLOR[cell.color] || deriveFlashClass(cell.color))
+                            : "bg-amber-200";
+
+                          return (
+                            <div
+                              key={`clr-${r}-${c}`}
+                              className="pointer-events-none relative z-[25] rounded-sm"
+                              style={{ gridRow: r + 1, gridColumn: c + 1 }}
+                            >
+                              <div
+                                className={`absolute inset-0 ${flashClass} rounded-sm`}
+                                style={{ animation: `cellClear ${CLEAR_MS}ms ease-out forwards` }}
+                              />
+                            </div>
+                          );
+                        })
+                      )
+                    )}
+
+                    {/* Shift animation overlay: render remaining cells and translate them */}
+                    {animGrid && animGrid.map((row, r) =>
+                      row.map((cell, c) => {
+                        if (!cell) return null;
+
+                        return (
+                          <div
+                            key={`move-${r}-${c}`}
+                            className="pointer-events-none relative z-[30]"
+                            style={{ gridRow: r + 1, gridColumn: c + 1 }}
+                          >
+                            <div
+                              className={`absolute inset-0 rounded-sm ${cell.color}`}
+                              style={{
+                                transform: `translate3d(${shiftProgress ? shiftXPx : 0}px, ${shiftProgress ? shiftYPx : 0}px, 0)`,
+                                transition: `transform ${SHIFT_MS}ms cubic-bezier(.2,.9,.2,1)`,
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                              }}
+                            />
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* Drag preview overlay (also centered) */}
+                  {!isAnimating && drag && drag.over && (
+                    <div className="pointer-events-none absolute inset-0" style={{ zIndex: 40 }}>
+                      {drag.blocks.map(([dx, dy], i) => {
+                        const r = drag.over.row + dy;
+                        const c = drag.over.col + dx;
+                        if (r < 0 || c < 0 || r >= GRID_ROWS || c >= GRID_COLS) return null;
+                        const invalid = !drag.valid;
+                        return (
+                          <div key={`drag-${i}`}
+                            className={`absolute rounded-md ${drag.color} ${invalid ? 'animate-pulse' : ''}`}
+                            style={{
+                              left: c * stride + 2,
+                              top: r * stride + 2,
+                              width: cellPx - 4,
+                              height: cellPx - 4,
+                              opacity: invalid ? 0.4 : 0.8,
+                              outline: invalid ? "2px dashed rgba(248,113,113,1)" : "2px solid rgba(56,189,248,0.95)",
+                              boxShadow: invalid ? "0 0 0 1px rgba(248,113,113,0.8) inset, 0 0 12px rgba(248,113,113,0.4)" : "0 0 0 1px rgba(56,189,248,0.65) inset, 0 0 12px rgba(56,189,248,0.4)",
+                              backgroundImage: invalid ? "repeating-linear-gradient(45deg, rgba(248,113,113,0.28), rgba(248,113,113,0.28) 6px, rgba(248,113,113,0.08) 6px, rgba(248,113,113,0.08) 12px)" : undefined,
+                            }}
+                          />
+                        );
+                      })}
                     </div>
-                  );
-                })
-              ))}
+                  )}
 
-              {!isAnimating && hoverOverlay && (
-                hoverOverlay.blocks.map(([dx, dy], i) => {
-                  const invalid = !hoverOverlay.valid;
-
-                  return (
-                    <div key={`hover-${i}`}
-                      className={`rounded-md ${hoverOverlay.color} ${invalid ? 'animate-pulse' : ''}`}
-                      style={{
-                        gridRow: `${1 + dy}`,
-                        gridColumn: `${1 + dx}`,
-                        transition: "transform 50ms ease",
-                        transform: `translate3d(calc(${hoverOverlay.col} * (100% + ${GAP_PX}px)), calc(${hoverOverlay.row} * (100% + ${GAP_PX}px)), 0)`,
-                        opacity: invalid ? 0.4 : 0.7,
-                        boxShadow: invalid ? "0 0 0 2px rgba(248,113,113,0.8) inset" : "0 0 0 2px rgba(56,189,248,0.6) inset, 0 0 8px rgba(56,189,248,0.3)",
-                        backgroundImage: invalid ? "repeating-linear-gradient(45deg, rgba(248,113,113,0.28), rgba(248,113,113,0.28) 6px, rgba(248,113,113,0.08) 6px, rgba(248,113,113,0.08) 12px)" : undefined,
-                      }}
-                    />
-                  );
-                })
-              )}
-
-              {clearAnim && (
-                Array.from({ length: GRID_ROWS }).flatMap((_, r) =>
-                  Array.from({ length: GRID_COLS }).map((_, c) => {
-                    if (!clearAnim.rowsFull.has(r) && !clearAnim.colsFull.has(c)) return null;
-
-                    const cell = clearAnim.grid[r][c];
-                    const flashClass = cell
-                      ? (FLASH_BY_COLOR[cell.color] || deriveFlashClass(cell.color))
-                      : "bg-amber-200";
-
-                    return (
-                      <div
-                        key={`clr-${r}-${c}`}
-                        className="pointer-events-none relative z-[25] rounded-sm"
-                        style={{ gridRow: r + 1, gridColumn: c + 1 }}
-                      >
-                        <div
-                          className={`absolute inset-0 ${flashClass} rounded-sm`}
-                          style={{ animation: `cellClear ${CLEAR_MS}ms ease-out forwards` }}
-                        />
-                      </div>
-                    );
-                  })
-                )
-              )}
-
-              {/* Shift animation overlay: render remaining cells and translate them */}
-              {animGrid && animGrid.map((row, r) =>
-                row.map((cell, c) => {
-                  if (!cell) return null;
-
-                  return (
-                    <div
-                      key={`move-${r}-${c}`}
-                      className="pointer-events-none relative z-[30]"
-                      style={{ gridRow: r + 1, gridColumn: c + 1 }}
-                    >
-                      <div
-                        className={`absolute inset-0 rounded-sm ${cell.color}`}
-                        style={{
-                          transform: `translate3d(${shiftProgress ? shiftXPx : 0}px, ${shiftProgress ? shiftYPx : 0}px, 0)`,
-                          transition: `transform ${SHIFT_MS}ms cubic-bezier(.2,.9,.2,1)`,
-                          boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                        }}
-                      />
+                  {/* Combo popup (center) */}
+                  {comboPopup && (
+                    <div className="pointer-events-none absolute left-1/2 top-1/2" style={{ zIndex: 50, transform: 'translate(-50%, -50%)' }}>
+                      <div className="text-5xl font-black tracking-wide bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent drop-shadow-[0_4px_20px_rgba(34,211,238,0.8)]" style={{ animation: `comboPop ${COMBO_MS}ms ease-out forwards` }}>{comboPopup.text}</div>
+                      {comboPopup.sub && <div className="text-center text-cyan-300/90 font-bold text-lg -mt-2" style={{ animation: `comboPop ${COMBO_MS}ms ease-out forwards` }}>{comboPopup.sub}</div>}
                     </div>
-                  );
-                })
-              )}
-            </div>
+                  )}
 
-            {/* Drag preview overlay (also centered) */}
-            {!isAnimating && drag && drag.over && (
-              <div className="pointer-events-none absolute inset-0" style={{ zIndex: 40 }}>
-                {drag.blocks.map(([dx, dy], i) => {
-                  const r = drag.over.row + dy;
-                  const c = drag.over.col + dx;
-                  if (r < 0 || c < 0 || r >= GRID_ROWS || c >= GRID_COLS) return null;
-                  const invalid = !drag.valid;
-                  return (
-                    <div key={`drag-${i}`}
-                      className={`absolute rounded-md ${drag.color} ${invalid ? 'animate-pulse' : ''}`}
-                      style={{
-                        left: c * stride + 2,
-                        top: r * stride + 2,
-                        width: cellPx - 4,
-                        height: cellPx - 4,
-                        opacity: invalid ? 0.4 : 0.8,
-                        outline: invalid ? "2px dashed rgba(248,113,113,1)" : "2px solid rgba(56,189,248,0.95)",
-                        boxShadow: invalid ? "0 0 0 1px rgba(248,113,113,0.8) inset, 0 0 12px rgba(248,113,113,0.4)" : "0 0 0 1px rgba(56,189,248,0.65) inset, 0 0 12px rgba(56,189,248,0.4)",
-                        backgroundImage: invalid ? "repeating-linear-gradient(45deg, rgba(248,113,113,0.28), rgba(248,113,113,0.28) 6px, rgba(248,113,113,0.08) 6px, rgba(248,113,113,0.08) 12px)" : undefined,
-                      }}
-                    />
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Combo popup (center) */}
-            {comboPopup && (
-              <div className="pointer-events-none absolute left-1/2 top-1/2" style={{ zIndex: 50, transform: 'translate(-50%, -50%)' }}>
-                <div className="text-5xl font-black tracking-wide bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent drop-shadow-[0_4px_20px_rgba(34,211,238,0.8)]" style={{ animation: `comboPop ${COMBO_MS}ms ease-out forwards` }}>{comboPopup.text}</div>
-                {comboPopup.sub && <div className="text-center text-cyan-300/90 font-bold text-lg -mt-2" style={{ animation: `comboPop ${COMBO_MS}ms ease-out forwards` }}>{comboPopup.sub}</div>}
-              </div>
-            )}
-
-            {/* Score bursts */}
-            {scoreBursts.length > 0 && (
-              <div className="pointer-events-none absolute inset-0" style={{ zIndex: 45 }}>
-                {scoreBursts.map(b => (
-                  <div key={b.id} className="absolute text-amber-400 font-black text-xl" style={{ left: b.x, top: b.y, transform: 'translate(-50%, -50%)', animation: `scoreRise ${BURST_MS}ms ease-out forwards`, textShadow: '0 3px 12px rgba(0,0,0,0.6)' }}>{b.text}</div>
-                ))}
-              </div>
-            )}
-          </div>
+                  {/* Score bursts */}
+                  {scoreBursts.length > 0 && (
+                    <div className="pointer-events-none absolute inset-0" style={{ zIndex: 45 }}>
+                      {scoreBursts.map(b => (
+                        <div key={b.id} className="absolute text-amber-400 font-black text-xl" style={{ left: b.x, top: b.y, transform: 'translate(-50%, -50%)', animation: `scoreRise ${BURST_MS}ms ease-out forwards`, textShadow: '0 3px 12px rgba(0,0,0,0.6)' }}>{b.text}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Queue Panel - Below board on mobile, beside on desktop */}
