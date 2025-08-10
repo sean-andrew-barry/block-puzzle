@@ -30,7 +30,7 @@ export default function QueuePanel({ queue, onStartDrag, selectedIndex, setSelec
               <ShapePreview item={item} />
             </div>
             
-            <div className="flex flex-col gap-2 z-10">
+            <div className="flex flex-col gap-2 z-10 ml-auto">
               <div className="flex items-center gap-1 text-xs text-slate-400">
                 {item.isMirrored && <span className="bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded text-xs">flip</span>}
                 {item.rotation > 0 && <span className="bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded text-xs">r{item.rotation}</span>}
