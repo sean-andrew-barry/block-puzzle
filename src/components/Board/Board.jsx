@@ -29,8 +29,8 @@ export default function Board() {
     const ro = new ResizeObserver(update);
     ro.observe(gridEl);
     window.addEventListener("resize", update);
-    // Try to focus the grid when it mounts so onKeyDown works immediately
-    gridEl.focus?.();
+    // // Try to focus the grid when it mounts so onKeyDown works immediately
+    // gridEl.focus?.();
     return () => { ro.disconnect(); window.removeEventListener("resize", update); };
   }, [board]);
 
