@@ -5,6 +5,7 @@ import Header from "/src/components/Header";
 // import CollapsibleStats from "/src/components/CollapsibleStats";
 import Board from "/src/components/Board/Board";
 import Queue from "/src/components/Queue";
+import HoverOverlay from "/src/components/HoverOverlay";
 
 export default function Home() {
   return (
@@ -16,6 +17,7 @@ export default function Home() {
             <div className="h-full flex flex-col xl:flex-row gap-4 lg:gap-6">
               <div className="flex-1 min-w-0">
                 <Board />
+                {/* <HoverOverlay /> */}
               </div>
 
               <aside className="w-full xl:w-80 shrink-0">
@@ -29,6 +31,7 @@ export default function Home() {
               <CollapsibleStats />
             </div> */}
           </div>
+
         </main>
         {/* <Footer /> */}
       </BoardProvider>

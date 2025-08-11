@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useBoardContext } from "./useBoardContext";
 import Lines from "./Lines";
 import HoverOverlay from "./HoverOverlay";
+// import HoverOverlay from "/src/components/HoverOverlay";
 import ClearOverlay from "./ClearOverlay";
 import ShiftOverlay from "./ShiftOverlay";
 
@@ -10,8 +11,8 @@ export default function Board() {
   const { rows, cols, gapPx } = board;
   const gridRef = useRef(null);
   const cellRef = useRef(null);
-  // Store last pointer position for hover updates
-  const lastPointerRef = useRef({ gx: null, gy: null });
+  // Store last pointer position and overGrid status for hover updates
+  const lastPointerRef = useRef({ gx: null, gy: null, overGrid: false });
 
   useLayoutEffect(() => {
     const gridEl = gridRef.current;
@@ -43,7 +44,10 @@ export default function Board() {
 
   const toLocal = (e) => {
     const rect = gridRef.current.getBoundingClientRect();
-    return { gx: e.clientX - rect.left, gy: e.clientY - rect.top };
+    const gx = e.clientX - rect.left;
+    const gy = e.clientY - rect.top;
+    const overGrid = e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
+    return { gx, gy, overGrid, rect };
   };
 
   // Global key listener as a fallback so rotation works even if focus is elsewhere
@@ -60,20 +64,42 @@ export default function Board() {
     return () => window.removeEventListener("keydown", onKey);
   }, [board]);
 
+  // Global mouse move listener
+  useEffect(() => {
+    const onMouseMove = (e) => {
+      const { gx, gy, overGrid, rect } = toLocal(e);
+      lastPointerRef.current = { gx, gy, overGrid };
+      board.updatePointer(gx, gy, overGrid, rect);
+      board.updateHoverFromPoint(gx, gy);
+    };
+    window.addEventListener("mousemove", onMouseMove);
+    return () => window.removeEventListener("mousemove", onMouseMove);
+  }, [board]);
+
   return (
     <div
       ref={gridRef}
-      className="relative grid aspect-square max-w-[90vmin] mx-auto rounded-xl overflow-hidden bg-slate-900/40 backdrop-blur-sm border-2 border-slate-700/30 shadow-2xl h-[min(85vh,85vw)] w-[min(85vh,85vw)] xl:h-[min(80vh,60vw)] xl:w-[min(80vh,60vw)]"
+      className="relative grid aspect-square max-w-[90vmin] mx-auto rounded-xl bg-slate-900/40 backdrop-blur-sm border-2 border-slate-700/30 shadow-2xl h-[min(85vh,85vw)] w-[min(85vh,85vw)] xl:h-[min(80vh,60vw)] xl:w-[min(80vh,60vw)]"
       style={gridStyle}
-      onPointerMove={(e) => {
-        const { gx, gy } = toLocal(e);
-        lastPointerRef.current = { gx, gy };
-        board.updateHoverFromPoint(gx, gy);
+      // onPointerMove={(e) => {
+      //   const { gx, gy, overGrid } = toLocal(e);
+      //   lastPointerRef.current = { gx, gy, overGrid };
+      //   board.updatePointer(gx, gy, overGrid);
+      //   if (overGrid) board.updateHoverFromPoint(gx, gy);
+      //   else board.clearHover();
+      // }}
+      onPointerEnter={(e) => {
+        const { rect } = toLocal(e);
+        board.updatePointer(board.gx, board.gy, true, rect);
       }}
-      onPointerLeave={board.clearHover}
+      onPointerLeave={(e) => {
+        const { rect } = toLocal(e);
+        board.updatePointer(board.gx, board.gy, false, rect);
+      }}
       onPointerDown={(e) => {
-        const { gx, gy } = toLocal(e);
-        lastPointerRef.current = { gx, gy };
+        const { gx, gy, overGrid, rect } = toLocal(e);
+        lastPointerRef.current = { gx, gy, overGrid };
+        board.updatePointer(gx, gy, overGrid, rect);
         // Ensure grid keeps focus for keyboard controls
         gridRef.current?.focus?.();
         if (e.button === 0) {

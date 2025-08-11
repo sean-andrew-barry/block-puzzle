@@ -7,6 +7,8 @@ export default function HoverOverlay() {
 
   if (isAnimating || !hover) return null;
 
+  // console.log(cellW, cellH, hover);
+
   const vpW = document.documentElement.clientWidth;
   const vpH = document.documentElement.clientHeight;
   const gridTop = gridRect?.top ?? 0;
