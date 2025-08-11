@@ -155,10 +155,10 @@ export default function useBoard({ rows, cols, gapPx, seed = 1234 }) {
   }, [rngChoice]);
 
   const ensureQueue = useCallback(() => {
-    if (state.queue.length >= QUEUE_SIZE) return;
-    const q = state.queue.slice();
-    while (q.length < QUEUE_SIZE) q.push(makeNextShape());
-    dispatch({ type: ACT.QUEUE_SET, queue: q });
+    // Only (re)fill when the queue is empty; do nothing if it has any items
+    if (state.queue.length !== 0) return;
+    const q = Array.from({ length: QUEUE_SIZE }, () => makeNextShape());
+    dispatch({ type: ACT.QUEUE_SET, queue: q, selectedIndex: 0 });
   }, [state.queue, makeNextShape]);
 
   // reset helpers
@@ -326,8 +326,13 @@ export default function useBoard({ rows, cols, gapPx, seed = 1234 }) {
     // 4) Consume from queue (fill back up)
     const q = state.queue.slice();
     q.splice(state.selectedIndex, 1);
-    while (q.length < QUEUE_SIZE) q.push(makeNextShape());
-    dispatch({ type: ACT.QUEUE_SET, queue: q, selectedIndex: Math.min(state.selectedIndex, q.length - 1) });
+    // Only refill when the queue becomes empty
+    let nextSelected = Math.min(state.selectedIndex, q.length - 1);
+    if (q.length === 0) {
+      for (let i = 0; i < QUEUE_SIZE; i++) q.push(makeNextShape());
+      nextSelected = 0; // reset selection when a fresh batch appears
+    }
+    dispatch({ type: ACT.QUEUE_SET, queue: q, selectedIndex: nextSelected });
 
     // Clear selection/hover right away (Board will recompute hover on next move)
     dispatch({ type: ACT.HOVER, hover: null });
