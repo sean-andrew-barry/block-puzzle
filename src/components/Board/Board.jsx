@@ -53,6 +53,7 @@ export default function Board() {
       const { gx, gy } = lastPointerRef.current;
       if (e.key === "r") board.rotateSelectedCW(gx, gy);
       if (e.key === "f") board.toggleSelectedMirror(gx, gy);
+      if (e.key === "v") board.toggleSelectedVerticalMirror(gx, gy);
       if (e.key === " ") board.placeHover();
     };
     window.addEventListener("keydown", onKey);
