@@ -19,15 +19,23 @@ export function rotate(blocks, steps) {
   return out;
 }
 
+
 export function mirror(blocks) {
   const { w } = shapeSize(blocks);
   const mirrored = blocks.map(([x, y]) => [w - 1 - x, y]);
   return normalize(mirrored);
 }
 
-export function applyOrientation(blocks, rotation, isMirrored) {
+export function mirrorVertical(blocks) {
+  const { h } = shapeSize(blocks);
+  const mirrored = blocks.map(([x, y]) => [x, h - 1 - y]);
+  return normalize(mirrored);
+}
+
+export function applyOrientation(blocks, rotation, isMirrored, isVertMirrored) {
   let oriented = rotate(blocks, rotation);
   if (isMirrored) oriented = mirror(oriented);
+  if (isVertMirrored) oriented = mirrorVertical(oriented);
   return oriented;
 }
 
