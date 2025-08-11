@@ -250,10 +250,10 @@ export default function useBoard({ rows, cols, gapPx, seed = 1234 }) {
     if (!cellSizeRef.current?.w || !cellSizeRef.current?.h) return;
     if (typeof gx !== "number" || typeof gy !== "number" || isNaN(gx) || isNaN(gy)) return;
     const oriented = Geometry.applyOrientation(item.blocks, item.rotation, item.isMirrored, item.isVertMirrored);
-    const { row, col } = placementFromPoint(gx, gy, oriented, cellSizeRef.current.w, cellSizeRef.current.h, gapPx);
+    const { row, col, rawRow, rawCol, width, height } = placementFromPoint(gx, gy, oriented, cellSizeRef.current.w, cellSizeRef.current.h, gapPx);
     if (typeof col !== "number" || typeof row !== "number" || isNaN(col) || isNaN(row)) return;
     const valid = Grid.canPlaceAt(state.grid, oriented, col, row);
-    dispatch({ type: ACT.HOVER, hover: { row, col, blocks: oriented, color: item.color, valid } });
+    dispatch({ type: ACT.HOVER, hover: { row, col, rawRow, rawCol, width, height, blocks: oriented, color: item.color, valid } });
   }, [state.grid, gapPx]);
 
   // Recompute hover at the existing hover cell with a provided item
