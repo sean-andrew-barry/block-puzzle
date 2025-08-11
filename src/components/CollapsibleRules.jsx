@@ -1,4 +1,4 @@
-import { useBoardContext } from "./Board/BoardContext";
+import { useBoardContext } from "./Board/useBoardContext";
 import StatsPanel from "./StatsPanel";
 
 export default function CollapsibleStats({ defaultOpen = false }) {

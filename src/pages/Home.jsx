@@ -1,4 +1,4 @@
-import { BoardProvider } from "/src/components/Board/BoardContext";
+import { BoardProvider } from "/src/components/Board/BoardProvider";
 import Header from "/src/components/Header";
 import Footer from "/src/components/Footer";
 import CollapsibleRules from "/src/components/CollapsibleRules";

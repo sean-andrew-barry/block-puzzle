@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useBoardContext } from "./Board/BoardContext";
+import { useBoardContext } from "./Board/useBoardContext";
 
 export default function Header() {
   const board = useBoardContext();

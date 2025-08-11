@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useBoardContext } from "./Board/BoardContext";
+import { useBoardContext } from "./Board/useBoardContext";
 import ShapePreview from "./ShapePreview";
 
 export default function Queue() {

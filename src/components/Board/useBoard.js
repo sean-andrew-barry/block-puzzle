@@ -1,4 +1,3 @@
-// /src/components/Board/useBoard.js
 import { useCallback, useMemo, useReducer, useRef } from "react";
 import * as Grid from "/src/game/grid.js";
 import * as Geometry from "/src/game/geometry.js";
@@ -117,6 +116,7 @@ const awardStats = (prev, { placedCells, rowsFull, colsFull, edgeCount, combo })
 
 // ---------- hook (controller) ----------
 export default function useBoard({ rows, cols, gapPx, seed = 1234 }) {
+  const seedRef = useRef(seed);
   const [state, dispatch] = useReducer(reducer, { rows, cols }, initState);
 
   const cellSizeRef = useRef({ w: 0, h: 0 });
@@ -201,8 +201,20 @@ export default function useBoard({ rows, cols, gapPx, seed = 1234 }) {
     }
     if (!cellSizeRef.current?.w || !cellSizeRef.current?.h) return;
 
+    // Guard against invalid gx/gy
+    if (typeof gx !== "number" || typeof gy !== "number" || isNaN(gx) || isNaN(gy)) {
+      dispatch({ type: ACT.HOVER, hover: null });
+      return;
+    }
+
     const oriented = Geometry.applyOrientation(item.blocks, item.rotation, item.isMirrored);
     const { row, col } = placementFromPoint(gx, gy, oriented, cellSizeRef.current.w, cellSizeRef.current.h, gapPx);
+
+    // Guard against NaN col/row
+    if (typeof col !== "number" || typeof row !== "number" || isNaN(col) || isNaN(row)) {
+      dispatch({ type: ACT.HOVER, hover: null });
+      return;
+    }
 
     const valid = Grid.canPlaceAt(state.grid, oriented, col, row);
     dispatch({ type: ACT.HOVER, hover: { row, col, blocks: oriented, color: item.color, valid } });
@@ -212,6 +224,26 @@ export default function useBoard({ rows, cols, gapPx, seed = 1234 }) {
     dispatch({ type: ACT.HOVER, hover: null });
   }, []);
 
+  // Recompute hover using a provided queue item (avoids stale state during rotate/mirror updates)
+  const recomputeHoverFromPoint = useCallback((gx, gy, item) => {
+    if (!item) { dispatch({ type: ACT.HOVER, hover: null }); return; }
+    if (!cellSizeRef.current?.w || !cellSizeRef.current?.h) return;
+    if (typeof gx !== "number" || typeof gy !== "number" || isNaN(gx) || isNaN(gy)) return;
+    const oriented = Geometry.applyOrientation(item.blocks, item.rotation, item.isMirrored);
+    const { row, col } = placementFromPoint(gx, gy, oriented, cellSizeRef.current.w, cellSizeRef.current.h, gapPx);
+    if (typeof col !== "number" || typeof row !== "number" || isNaN(col) || isNaN(row)) return;
+    const valid = Grid.canPlaceAt(state.grid, oriented, col, row);
+    dispatch({ type: ACT.HOVER, hover: { row, col, blocks: oriented, color: item.color, valid } });
+  }, [state.grid, gapPx]);
+
+  // Recompute hover at the existing hover cell with a provided item
+  const recomputeHoverAtCell = useCallback((row, col, item) => {
+    if (!item) return;
+    const oriented = Geometry.applyOrientation(item.blocks, item.rotation, item.isMirrored);
+    const valid = Grid.canPlaceAt(state.grid, oriented, col, row);
+    dispatch({ type: ACT.HOVER, hover: { row, col, blocks: oriented, color: item.color, valid } });
+  }, [state.grid]);
+
   // rotate / mirror selected (recompute hover using last known gx/gy if you store it in Board and pass back in)
   const rotateSelectedCW = useCallback((gx, gy) => {
     const idx = state.selectedIndex;
@@ -219,8 +251,13 @@ export default function useBoard({ rows, cols, gapPx, seed = 1234 }) {
     if (!q[idx]) return;
     q[idx] = { ...q[idx], rotation: (q[idx].rotation + 1) & 3 };
     dispatch({ type: ACT.QUEUE_SET, queue: q });
-    if (gx != null && gy != null) updateHoverFromPoint(gx, gy);
-  }, [state.selectedIndex, state.queue, updateHoverFromPoint]);
+    const itemNow = q[idx];
+    if (gx != null && gy != null) {
+      recomputeHoverFromPoint(gx, gy, itemNow);
+    } else if (state.hover) {
+      recomputeHoverAtCell(state.hover.row, state.hover.col, itemNow);
+    }
+  }, [state.selectedIndex, state.queue, state.hover, recomputeHoverFromPoint, recomputeHoverAtCell]);
 
   const toggleSelectedMirror = useCallback((gx, gy) => {
     const idx = state.selectedIndex;
@@ -228,8 +265,13 @@ export default function useBoard({ rows, cols, gapPx, seed = 1234 }) {
     if (!q[idx]) return;
     q[idx] = { ...q[idx], isMirrored: !q[idx].isMirrored };
     dispatch({ type: ACT.QUEUE_SET, queue: q });
-    if (gx != null && gy != null) updateHoverFromPoint(gx, gy);
-  }, [state.selectedIndex, state.queue, updateHoverFromPoint]);
+    const itemNow = q[idx];
+    if (gx != null && gy != null) {
+      recomputeHoverFromPoint(gx, gy, itemNow);
+    } else if (state.hover) {
+      recomputeHoverAtCell(state.hover.row, state.hover.col, itemNow);
+    }
+  }, [state.selectedIndex, state.queue, state.hover, recomputeHoverFromPoint, recomputeHoverAtCell]);
 
   // placement + animation pipeline
   const placeHover = useCallback(() => {
@@ -238,6 +280,13 @@ export default function useBoard({ rows, cols, gapPx, seed = 1234 }) {
     if (!h || !item || !h.valid || state.isAnimating) return false;
 
     const oriented = Geometry.applyOrientation(item.blocks, item.rotation, item.isMirrored);
+    // Revalidate placement using the current item orientation to avoid desync/overwrite
+    const stillValid = Grid.canPlaceAt(state.grid, oriented, h.col, h.row);
+    if (!stillValid) {
+      // Update hover to reflect invalid state and abort
+      dispatch({ type: ACT.HOVER, hover: { ...h, blocks: oriented, valid: false } });
+      return false;
+    }
 
     // 1) Place into a working grid
     const placedGrid = Grid.placeShape(state.grid, oriented, h.col, h.row, { color: item.color });

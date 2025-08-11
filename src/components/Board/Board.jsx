@@ -1,15 +1,17 @@
-import { useLayoutEffect, useMemo, useRef } from "react";
-import { useBoardContext } from "./BoardContext";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useBoardContext } from "./useBoardContext";
 import Lines from "./Lines";
-// import HoverOverlay from "../HoverOverlay";
-// import ClearOverlay from "./ClearOverlay";
-// import ShiftOverlay from "./ShiftOverlay";
+import HoverOverlay from "./HoverOverlay";
+import ClearOverlay from "./ClearOverlay";
+import ShiftOverlay from "./ShiftOverlay";
 
 export default function Board() {
   const board = useBoardContext();
   const { rows, cols, gapPx } = board;
   const gridRef = useRef(null);
   const cellRef = useRef(null);
+  // Store last pointer position for hover updates
+  const lastPointerRef = useRef({ gx: null, gy: null });
 
   useLayoutEffect(() => {
     const gridEl = gridRef.current;
@@ -27,6 +29,8 @@ export default function Board() {
     const ro = new ResizeObserver(update);
     ro.observe(gridEl);
     window.addEventListener("resize", update);
+    // Try to focus the grid when it mounts so onKeyDown works immediately
+    gridEl.focus?.();
     return () => { ro.disconnect(); window.removeEventListener("resize", update); };
   }, [board]);
 
@@ -42,27 +46,42 @@ export default function Board() {
     return { gx: e.clientX - rect.left, gy: e.clientY - rect.top };
   };
 
+  // Global key listener as a fallback so rotation works even if focus is elsewhere
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === " ") e.preventDefault();
+      const { gx, gy } = lastPointerRef.current;
+      if (e.key === "r") board.rotateSelectedCW(gx, gy);
+      if (e.key === "f") board.toggleSelectedMirror(gx, gy);
+      if (e.key === " ") board.placeHover();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [board]);
+
   return (
     <div
       ref={gridRef}
-      className="relative grid aspect-square max-w-[90vmin] mx-auto select-none rounded-xl overflow-hidden bg-slate-900/40 backdrop-blur-sm border-2 border-slate-700/30 shadow-2xl h-[min(85vh,85vw)] w-[min(85vh,85vw)] xl:h-[min(80vh,60vw)] xl:w-[min(80vh,60vw)]"
+      className="relative grid aspect-square max-w-[90vmin] mx-auto rounded-xl overflow-hidden bg-slate-900/40 backdrop-blur-sm border-2 border-slate-700/30 shadow-2xl h-[min(85vh,85vw)] w-[min(85vh,85vw)] xl:h-[min(80vh,60vw)] xl:w-[min(80vh,60vw)]"
       style={gridStyle}
       onPointerMove={(e) => {
         const { gx, gy } = toLocal(e);
+        lastPointerRef.current = { gx, gy };
         board.updateHoverFromPoint(gx, gy);
       }}
       onPointerLeave={board.clearHover}
       onPointerDown={(e) => {
-        if (e.button === 0) board.placeHover();
+        const { gx, gy } = toLocal(e);
+        lastPointerRef.current = { gx, gy };
+        // Ensure grid keeps focus for keyboard controls
+        gridRef.current?.focus?.();
+        if (e.button === 0) {
+          board.placeHover();
+        } else if (e.button === 2) {
+          board.rotateSelectedCW(gx, gy);
+        }
       }}
       onContextMenu={(e) => e.preventDefault()}
-      tabIndex={0}
-      onKeyDown={(e) => {
-        const { gx, gy } = toLocal(e);
-        if (e.key === "r") board.rotateSelectedCW(gx, gy);
-        if (e.key === "m") board.toggleSelectedMirror(gx, gy);
-        if (e.key === " ") { e.preventDefault(); board.placeHover(); }
-      }}
     >
       <Lines grid={board.grid} />
 
@@ -76,9 +95,9 @@ export default function Board() {
         ))
       ))}
 
-      {/* <HoverOverlay />
+      <HoverOverlay />
       <ClearOverlay />
-      <ShiftOverlay /> */}
+      <ShiftOverlay />
     </div>
   );
 }
