@@ -97,9 +97,12 @@ function placementFromPoint(gx, gy, blocks, cellW, cellH, gapPx) {
   const shapeWpx = w * cellW + (w - 1) * gapPx;
   const shapeHpx = h * cellH + (h - 1) * gapPx;
 
-  const col = Math.round((gx - shapeWpx / 2) / strideX);
-  const row = Math.round((gy - shapeHpx / 2) / strideY);
-  return { row, col };
+  const rawCol = (gx - shapeWpx / 2) / strideX;
+  const rawRow = (gy - shapeHpx / 2) / strideY;
+
+  const col = Math.round(rawCol);
+  const row = Math.round(rawRow);
+  return { row, col, rawRow, rawCol, width: shapeWpx, height: shapeHpx };
 }
 
 const awardStats = (prev, { placedCells, rowsFull, colsFull, edgeCount, combo }) => {
@@ -121,11 +124,24 @@ export default function useBoard({ rows, cols, gapPx, seed = 1234 }) {
   const [state, dispatch] = useReducer(reducer, { rows, cols }, initState);
 
   const cellSizeRef = useRef({ w: 0, h: 0 });
+  // Store the latest gx/gy and overGrid from mouse movement
+  const pointerRef = useRef({ gx: null, gy: null, overGrid: false });
+  // Track the grid's bounding rect for viewport clamping and conversions
+  const gridRectRef = useRef({ left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 });
+  // Update pointer position and overGrid status
+  const updatePointer = useCallback((gx, gy, overGrid, rect) => {
+    if (typeof gx === "number") pointerRef.current.gx = gx;
+    if (typeof gy === "number") pointerRef.current.gy = gy;
+    if (typeof overGrid === "boolean") pointerRef.current.overGrid = overGrid;
+    if (rect) gridRectRef.current = rect;
+  }, []);
   const setCellSize = useCallback((w, h) => {
     if (w && h) cellSizeRef.current = { w, h };
   }, []);
   // use cellSizeRef.current.w / .h anywhere you need cell size
   // expose stride too:
+  const cellW = cellSizeRef.current.w;
+  const cellH = cellSizeRef.current.h;
   const strideX = cellSizeRef.current.w + gapPx;
   const strideY = cellSizeRef.current.h + gapPx;
 
@@ -195,6 +211,9 @@ export default function useBoard({ rows, cols, gapPx, seed = 1234 }) {
 
   // hover updates from Board: Board computes (gx, gy) using its gridRef
   const updateHoverFromPoint = useCallback((gx, gy) => {
+    // Store the latest pointer position, but keep overGrid unchanged
+    pointerRef.current.gx = gx;
+    pointerRef.current.gy = gy;
     const item = state.queue[state.selectedIndex];
     if (!item) {
       dispatch({ type: ACT.HOVER, hover: null });
@@ -209,7 +228,7 @@ export default function useBoard({ rows, cols, gapPx, seed = 1234 }) {
     }
 
     const oriented = Geometry.applyOrientation(item.blocks, item.rotation, item.isMirrored, item.isVertMirrored);
-    const { row, col } = placementFromPoint(gx, gy, oriented, cellSizeRef.current.w, cellSizeRef.current.h, gapPx);
+    const { row, col, rawRow, rawCol, width, height } = placementFromPoint(gx, gy, oriented, cellSizeRef.current.w, cellSizeRef.current.h, gapPx);
 
     // Guard against NaN col/row
     if (typeof col !== "number" || typeof row !== "number" || isNaN(col) || isNaN(row)) {
@@ -218,7 +237,7 @@ export default function useBoard({ rows, cols, gapPx, seed = 1234 }) {
     }
 
     const valid = Grid.canPlaceAt(state.grid, oriented, col, row);
-    dispatch({ type: ACT.HOVER, hover: { row, col, blocks: oriented, color: item.color, valid } });
+    dispatch({ type: ACT.HOVER, hover: { row, col, rawRow, rawCol, width, height, blocks: oriented, color: item.color, valid } });
   }, [state.queue, state.selectedIndex, state.grid, gapPx]);
 
   const clearHover = useCallback(() => {
@@ -445,7 +464,13 @@ export default function useBoard({ rows, cols, gapPx, seed = 1234 }) {
     stats: state.stats,
 
     // config/derived
-    rows, cols, gapPx, strideX, strideY,
+    rows, cols, gapPx, cellW, cellH, strideX, strideY,
+
+    // pointer position
+    gx: pointerRef.current.gx,
+    gy: pointerRef.current.gy,
+    overGrid: pointerRef.current.overGrid,
+    gridRect: gridRectRef.current,
 
     // methods
     rngFloat,
@@ -457,6 +482,7 @@ export default function useBoard({ rows, cols, gapPx, seed = 1234 }) {
     ensureQueue,
     select,
     updateHoverFromPoint,
+    updatePointer,
     clearHover,
     rotateSelectedCW,
     toggleSelectedMirror,
@@ -466,8 +492,8 @@ export default function useBoard({ rows, cols, gapPx, seed = 1234 }) {
     // (later) animation pipeline entry points:
     // startClear(...), startShift(...), etc., wired to CLEAR_MS/SHIFT_MS timers
   }), [
-    state, rows, cols, gapPx,
-    initQueue, ensureQueue, select, updateHoverFromPoint, clearHover,
+    state, rows, cols, gapPx, cellW, cellH,
+    initQueue, ensureQueue, select, updateHoverFromPoint, updatePointer, clearHover,
     rotateSelectedCW, toggleSelectedMirror, toggleSelectedVerticalMirror, placeHover,
     strideX, strideY, newSeed, resetBoardKeepSeed, setCellSize, rngFloat, rngInt
   ]);
