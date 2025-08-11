@@ -82,7 +82,8 @@ function makeItemFromDef(def) {
     color: def.color,
     flash: def.flash,
     rotation: 0,
-    isMirrored: false,
+    isMirrored: false, // horizontal mirror
+    isVertMirrored: false, // vertical mirror
     blocks: def.blocks,
   };
 }
@@ -131,16 +132,16 @@ export default function useBoard({ rows, cols, gapPx, seed = 1234 }) {
   // immutable RNG state
   const rngStateRef = useRef(seed >>> 0);
 
-  // const rngFloat = useCallback(() => {
-  //   const { state: s, value } = RNG.nextFloat(rngStateRef.current);
-  //   rngStateRef.current = s;
-  //   return value;
-  // }, []);
-  // const rngInt = useCallback((max) => {
-  //   const { state: s, value } = RNG.nextInt(rngStateRef.current, max);
-  //   rngStateRef.current = s;
-  //   return value;
-  // }, []);
+  const rngFloat = useCallback(() => {
+    const { state: s, value } = RNG.nextFloat(rngStateRef.current);
+    rngStateRef.current = s;
+    return value;
+  }, []);
+  const rngInt = useCallback((max) => {
+    const { state: s, value } = RNG.nextInt(rngStateRef.current, max);
+    rngStateRef.current = s;
+    return value;
+  }, []);
   const rngChoice = useCallback((arr) => {
     const { state: s, value } = RNG.choice(rngStateRef.current, arr);
     rngStateRef.current = s;
@@ -207,7 +208,7 @@ export default function useBoard({ rows, cols, gapPx, seed = 1234 }) {
       return;
     }
 
-    const oriented = Geometry.applyOrientation(item.blocks, item.rotation, item.isMirrored);
+    const oriented = Geometry.applyOrientation(item.blocks, item.rotation, item.isMirrored, item.isVertMirrored);
     const { row, col } = placementFromPoint(gx, gy, oriented, cellSizeRef.current.w, cellSizeRef.current.h, gapPx);
 
     // Guard against NaN col/row
@@ -229,7 +230,7 @@ export default function useBoard({ rows, cols, gapPx, seed = 1234 }) {
     if (!item) { dispatch({ type: ACT.HOVER, hover: null }); return; }
     if (!cellSizeRef.current?.w || !cellSizeRef.current?.h) return;
     if (typeof gx !== "number" || typeof gy !== "number" || isNaN(gx) || isNaN(gy)) return;
-    const oriented = Geometry.applyOrientation(item.blocks, item.rotation, item.isMirrored);
+    const oriented = Geometry.applyOrientation(item.blocks, item.rotation, item.isMirrored, item.isVertMirrored);
     const { row, col } = placementFromPoint(gx, gy, oriented, cellSizeRef.current.w, cellSizeRef.current.h, gapPx);
     if (typeof col !== "number" || typeof row !== "number" || isNaN(col) || isNaN(row)) return;
     const valid = Grid.canPlaceAt(state.grid, oriented, col, row);
@@ -239,7 +240,7 @@ export default function useBoard({ rows, cols, gapPx, seed = 1234 }) {
   // Recompute hover at the existing hover cell with a provided item
   const recomputeHoverAtCell = useCallback((row, col, item) => {
     if (!item) return;
-    const oriented = Geometry.applyOrientation(item.blocks, item.rotation, item.isMirrored);
+    const oriented = Geometry.applyOrientation(item.blocks, item.rotation, item.isMirrored, item.isVertMirrored);
     const valid = Grid.canPlaceAt(state.grid, oriented, col, row);
     dispatch({ type: ACT.HOVER, hover: { row, col, blocks: oriented, color: item.color, valid } });
   }, [state.grid]);
@@ -273,13 +274,28 @@ export default function useBoard({ rows, cols, gapPx, seed = 1234 }) {
     }
   }, [state.selectedIndex, state.queue, state.hover, recomputeHoverFromPoint, recomputeHoverAtCell]);
 
+  // vertical mirror toggle
+  const toggleSelectedVerticalMirror = useCallback((gx, gy) => {
+    const idx = state.selectedIndex;
+    const q = state.queue.slice();
+    if (!q[idx]) return;
+    q[idx] = { ...q[idx], isVertMirrored: !q[idx].isVertMirrored };
+    dispatch({ type: ACT.QUEUE_SET, queue: q });
+    const itemNow = q[idx];
+    if (gx != null && gy != null) {
+      recomputeHoverFromPoint(gx, gy, itemNow);
+    } else if (state.hover) {
+      recomputeHoverAtCell(state.hover.row, state.hover.col, itemNow);
+    }
+  }, [state.selectedIndex, state.queue, state.hover, recomputeHoverFromPoint, recomputeHoverAtCell]);
+
   // placement + animation pipeline
   const placeHover = useCallback(() => {
     const h = state.hover;
     const item = state.queue[state.selectedIndex];
     if (!h || !item || !h.valid || state.isAnimating) return false;
 
-    const oriented = Geometry.applyOrientation(item.blocks, item.rotation, item.isMirrored);
+    const oriented = Geometry.applyOrientation(item.blocks, item.rotation, item.isMirrored, item.isVertMirrored);
     // Revalidate placement using the current item orientation to avoid desync/overwrite
     const stillValid = Grid.canPlaceAt(state.grid, oriented, h.col, h.row);
     if (!stillValid) {
@@ -427,6 +443,8 @@ export default function useBoard({ rows, cols, gapPx, seed = 1234 }) {
     rows, cols, gapPx, strideX, strideY,
 
     // methods
+    rngFloat,
+    rngInt,
     setCellSize,
     newSeed,
     resetBoardKeepSeed,
@@ -438,13 +456,14 @@ export default function useBoard({ rows, cols, gapPx, seed = 1234 }) {
     rotateSelectedCW,
     toggleSelectedMirror,
     placeHover,
+    toggleSelectedVerticalMirror,
 
     // (later) animation pipeline entry points:
     // startClear(...), startShift(...), etc., wired to CLEAR_MS/SHIFT_MS timers
   }), [
     state, rows, cols, gapPx,
     initQueue, ensureQueue, select, updateHoverFromPoint, clearHover,
-    rotateSelectedCW, toggleSelectedMirror, placeHover,
-    strideX, strideY, newSeed, resetBoardKeepSeed, setCellSize
+    rotateSelectedCW, toggleSelectedMirror, toggleSelectedVerticalMirror, placeHover,
+    strideX, strideY, newSeed, resetBoardKeepSeed, setCellSize, rngFloat, rngInt
   ]);
 }
