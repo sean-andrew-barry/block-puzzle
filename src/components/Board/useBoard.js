@@ -2,7 +2,7 @@ import { useCallback, useMemo, useReducer, useRef } from "react";
 import * as Grid from "/src/game/grid.js";
 import * as Geometry from "/src/game/geometry.js";
 import * as RNG from "/src/utils/rng.js"; // immutable API you chose
-import { QUEUE_SIZE, CLEAR_MS, SHIFT_MS } from "/src/data/constants.js";
+import { QUEUE_SIZE, CLEAR_MS, SHIFT_MS, COMBO_MS, BURST_MS } from "/src/data/constants.js";
 import { shapes as SHAPES } from "/src/data/shapes.js";
 
 // ---------- actions ----------
@@ -21,6 +21,12 @@ const ACT = {
   STATS_SET: "STATS_SET",
   HIDE_BASE: "HIDE_BASE",
   SHIFT_PROGRESS: "SHIFT_PROGRESS",
+
+  COMBO_SHOW: "COMBO_SHOW",
+  COMBO_CLEAR: "COMBO_CLEAR",
+  BURST_ADD: "BURST_ADD",
+  BURST_REMOVE: "BURST_REMOVE",
+  BURSTS_CLEAR: "BURSTS_CLEAR",
 };
 
 function initState({ rows, cols }) {
@@ -39,6 +45,10 @@ function initState({ rows, cols }) {
     hideBaseFills: false,
 
     stats: { moves: 0, score: 0, totalPlacedBlocks: 0, linesClearedRows: 0, linesClearedCols: 0, edgeShifts: 0, maxCombo: 0 },
+
+    // UI juice
+    comboPopup: null,          // { text, sub }
+    scoreBursts: [],           // [{ id, x, y, text }]
   };
 }
 
@@ -68,6 +78,16 @@ function reducer(s, a) {
       return { ...s, hideBaseFills: a.value };
     case ACT.SHIFT_PROGRESS:
       return { ...s, shiftProgress: a.value };
+    case ACT.COMBO_SHOW:
+      return { ...s, comboPopup: a.payload };
+    case ACT.COMBO_CLEAR:
+      return { ...s, comboPopup: null };
+    case ACT.BURST_ADD:
+      return { ...s, scoreBursts: [...s.scoreBursts, a.payload] };
+    case ACT.BURST_REMOVE:
+      return { ...s, scoreBursts: s.scoreBursts.filter(b => b.id !== a.id) };
+    case ACT.BURSTS_CLEAR:
+      return { ...s, scoreBursts: [] };
     default:
       return s;
   }
@@ -122,6 +142,9 @@ const awardStats = (prev, { placedCells, rowsFull, colsFull, edgeCount, combo })
 export default function useBoard({ rows, cols, gapPx, seed = 1234 }) {
   const seedRef = useRef(seed);
   const [state, dispatch] = useReducer(reducer, { rows, cols }, initState);
+
+  // local counter for burst IDs
+  const burstIdRef = useRef(1);
 
   const cellSizeRef = useRef({ w: 0, h: 0 });
   // Store the latest gx/gy and overGrid from mouse movement
@@ -185,6 +208,11 @@ export default function useBoard({ rows, cols, gapPx, seed = 1234 }) {
     const q = Array.from({ length: QUEUE_SIZE }, () => makeNextShape());
     dispatch({ type: ACT.QUEUE_SET, queue: q, selectedIndex: 0 });
     // …reset any stats you track…
+    dispatch({ type: ACT.HOVER, hover: null });
+    dispatch({ type: ACT.CLEAR_DONE });
+    dispatch({ type: ACT.SHIFT_END });
+    dispatch({ type: ACT.COMBO_CLEAR });
+    dispatch({ type: ACT.BURSTS_CLEAR });
   }, [rows, cols, makeNextShape]);
 
   const newSeed = useCallback(() => {
@@ -338,9 +366,32 @@ export default function useBoard({ rows, cols, gapPx, seed = 1234 }) {
     const newStats = awardStats(state.stats, { placedCells, rowsFull, colsFull, edgeCount, combo });
     dispatch({ type: ACT.STATS_SET, stats: newStats });
 
-    // (optional) SFX & UI bursts/hooks here:
-    // sfx?.place({ cells: placedCells }); etc.
-    // You can expose and call board.addScoreBurst? showComboPopup? from the controller if you want.
+    // UI bursts + combo popup
+    const strideXLocal = cellSizeRef.current.w + gapPx;
+    const strideYLocal = cellSizeRef.current.h + gapPx;
+    const boardW = cols * strideXLocal - gapPx;
+    const boardH = rows * strideYLocal - gapPx;
+
+    const addBurst = (x, y, text) => {
+      const id = burstIdRef.current++;
+      dispatch({ type: ACT.BURST_ADD, payload: { id, x, y, text } });
+      setTimeout(() => dispatch({ type: ACT.BURST_REMOVE, id }), BURST_MS + 50);
+    };
+
+    if (combo > 0) {
+      // per-row bursts
+      rowsFull.forEach(r => addBurst(boardW / 2, r * strideYLocal + cellSizeRef.current.h / 2, "+100"));
+      // per-col bursts
+      colsFull.forEach(c => addBurst(c * strideXLocal + cellSizeRef.current.w / 2, boardH / 2, "+100"));
+      // edge bonus burst (center)
+      if (edgeCount > 0) addBurst(boardW / 2, boardH / 2, `+${edgeCount * 50}`);
+
+      // combo popup
+      const label = combo >= 4 ? `MEGA CLEAR x${combo}!` : (combo === 3 ? "TRIPLE CLEAR!" : (combo === 2 ? "DOUBLE CLEAR!" : "LINE CLEAR!"));
+      const sub = edgeCount > 0 ? `EDGE SHIFT x${edgeCount}` : null;
+      dispatch({ type: ACT.COMBO_SHOW, payload: { text: label, sub } });
+      setTimeout(() => dispatch({ type: ACT.COMBO_CLEAR }), COMBO_MS);
+    }
 
     // 4) Consume from queue (fill back up)
     const q = state.queue.slice();
@@ -447,7 +498,7 @@ export default function useBoard({ rows, cols, gapPx, seed = 1234 }) {
     }, CLEAR_MS + 10);
 
     return true;
-  }, [state.hover, state.queue, state.selectedIndex, state.grid, state.stats, state.isAnimating, makeNextShape]);
+  }, [state.hover, state.queue, state.selectedIndex, state.grid, state.stats, state.isAnimating, makeNextShape, rows, cols, gapPx]);
 
   return useMemo(() => ({
     // state
@@ -462,6 +513,8 @@ export default function useBoard({ rows, cols, gapPx, seed = 1234 }) {
     shiftProgress: state.shiftProgress,
     hideBaseFills: state.hideBaseFills,
     stats: state.stats,
+    comboPopup: state.comboPopup,
+    scoreBursts: state.scoreBursts,
 
     // config/derived
     rows, cols, gapPx, cellW, cellH, strideX, strideY,

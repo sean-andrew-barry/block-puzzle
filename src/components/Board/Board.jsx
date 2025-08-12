@@ -5,6 +5,7 @@ import HoverOverlay from "./HoverOverlay";
 // import HoverOverlay from "/src/components/HoverOverlay";
 import ClearOverlay from "./ClearOverlay";
 import ShiftOverlay from "./ShiftOverlay";
+import { COMBO_MS, BURST_MS } from "/src/data/constants.js";
 
 export default function Board() {
   const board = useBoardContext();
@@ -125,6 +126,41 @@ export default function Board() {
       <HoverOverlay />
       <ClearOverlay />
       <ShiftOverlay />
+
+      {/* Score bursts */}
+      {board.scoreBursts?.length > 0 && (
+        <div className="pointer-events-none absolute inset-0" style={{ zIndex: 45 }}>
+          {board.scoreBursts.map(b => (
+            <div
+              key={b.id}
+              className="absolute text-amber-400 font-black text-xl"
+              style={{ left: b.x, top: b.y, transform: 'translate(-50%, -50%)', animation: `scoreRise ${BURST_MS}ms ease-out forwards`, textShadow: '0 3px 12px rgba(0,0,0,0.6)' }}
+            >
+              {b.text}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Combo popup */}
+      {board.comboPopup && (
+        <div className="pointer-events-none absolute left-1/2 top-1/2" style={{ zIndex: 50, transform: 'translate(-50%, -50%)' }}>
+          <div
+            className="text-5xl font-black tracking-wide bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent drop-shadow-[0_4px_20px_rgba(34,211,238,0.8)]"
+            style={{ animation: `comboPop ${COMBO_MS}ms ease-out forwards` }}
+          >
+            {board.comboPopup.text}
+          </div>
+          {board.comboPopup.sub && (
+            <div
+              className="text-center text-cyan-300/90 font-bold text-lg -mt-2"
+              style={{ animation: `comboPop ${COMBO_MS}ms ease-out forwards` }}
+            >
+              {board.comboPopup.sub}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
