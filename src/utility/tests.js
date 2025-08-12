@@ -5,14 +5,14 @@ import {
   rotate,
   mirror,
   normalize,
-} from "../puzzle/geometry.js";
+} from "/src/game/geometry.js";
 
 import {
   emptyGrid,
   computeClears,
   // clearOnly,
   applyClearsAndShifts,
-} from "../puzzle/grid.js";
+} from "/src/game/grid.js";
 
 import { makeRng } from "../utility/rng.js";
 
