@@ -1,4 +1,5 @@
 import { useBoardContext } from "./useBoardContext";
+import { shapeSize } from "../../game/geometry";
 
 // Renders the hover preview for the currently selected shape.
 export default function HoverOverlay() {
@@ -17,10 +18,7 @@ export default function HoverOverlay() {
   const strideX = cellW + gapPx;
 
   // Determine shape dimensions in grid cells
-  const xs = hover.blocks.map(([x]) => x);
-  const ys = hover.blocks.map(([, y]) => y);
-  const shapeW = Math.max(...xs) + 1;
-  const shapeH = Math.max(...ys) + 1;
+  const { w: shapeW, h: shapeH } = shapeSize(hover.blocks);
 
   // Clamp so the shape never goes out of viewport on right/bottom
   const maxRows = Math.floor((vpH - gridTop) / strideY) - shapeH;
