@@ -1,11 +1,10 @@
 import { BoardProvider } from "/src/components/Board/BoardProvider";
 import Header from "/src/components/Header";
-// import Footer from "/src/components/Footer";
-// import CollapsibleRules from "/src/components/CollapsibleRules";
-// import CollapsibleStats from "/src/components/CollapsibleStats";
+import Footer from "/src/components/Footer";
+import CollapsibleRules from "/src/components/CollapsibleRules";
+import CollapsibleStats from "/src/components/CollapsibleStats";
 import Board from "/src/components/Board/Board";
 import Queue from "/src/components/Queue";
-import HoverOverlay from "/src/components/HoverOverlay";
 
 export default function Home() {
   return (
@@ -17,7 +16,6 @@ export default function Home() {
             <div className="h-full flex flex-col xl:flex-row gap-4 lg:gap-6">
               <div className="flex-1 min-w-0">
                 <Board />
-                {/* <HoverOverlay /> */}
               </div>
 
               <aside className="w-full xl:w-80 shrink-0">
@@ -26,10 +24,10 @@ export default function Home() {
             </div>
 
             {/* Collapsible Stats & Rules */}
-            {/* <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-4">
               <CollapsibleRules />
               <CollapsibleStats />
-            </div> */}
+            </div>
           </div>
 
         </main>

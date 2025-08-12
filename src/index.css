@@ -1,1 +1,12 @@
 @import "tailwindcss";
+
+/* Prevent layout shift when content toggles height by reserving scrollbar gutter */
+html {
+  /* Modern browsers: keep scrollbar space stable */
+  scrollbar-gutter: stable;
+}
+
+/* Fallback for environments without scrollbar-gutter support (e.g., classic Windows scrollbars) */
+body {
+  overflow-y: scroll;
+}
