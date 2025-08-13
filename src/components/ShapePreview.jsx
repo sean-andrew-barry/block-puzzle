@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import {
   applyOrientation,
   shapeSize,
-} from "../puzzle/geometry.js";
+} from "/src/game/geometry.js";
 
 export default function ShapePreview({ item }) {
   const blocks = useMemo(() => applyOrientation(item.blocks, item.rotation, item.isMirrored), [item.blocks, item.rotation, item.isMirrored]);

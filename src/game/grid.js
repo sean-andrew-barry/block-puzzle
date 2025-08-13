@@ -1,6 +1,8 @@
 import * as geometry from '/src/game/geometry.js';
+import { GRID_ROWS, GRID_COLS } from '/src/data/constants.js';
 
-export function emptyGrid(rows, cols) {
+// Provide defaults matching the legacy API so callers like tests() can omit args
+export function emptyGrid(rows = GRID_ROWS, cols = GRID_COLS) {
   return Array.from({ length: rows }, () => Array.from({ length: cols }, () => null));
 }
 

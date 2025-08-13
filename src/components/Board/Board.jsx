@@ -2,7 +2,6 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useBoardContext } from "./useBoardContext";
 import Lines from "./Lines";
 import HoverOverlay from "./HoverOverlay";
-// import HoverOverlay from "/src/components/HoverOverlay";
 import ClearOverlay from "./ClearOverlay";
 import ShiftOverlay from "./ShiftOverlay";
 import { COMBO_MS, BURST_MS } from "/src/data/constants.js";
